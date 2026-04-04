@@ -23,6 +23,8 @@ class CrrCreatePayload {
     this.aits = const <String>[],
     this.enquadramentos = const <String>[],
     this.imagens = const <String>[],
+    this.veiculoSemIdentificacao = false,
+    this.situacaoEntrega = '',
   });
 
   final String numeroCrr;
@@ -48,6 +50,107 @@ class CrrCreatePayload {
   final List<String> aits;
   final List<String> enquadramentos;
   final List<String> imagens;
+  final bool veiculoSemIdentificacao;
+  final String situacaoEntrega;
+
+  factory CrrCreatePayload.fromJson(Map<String, dynamic> json) {
+    List<String> _readStringList(String key) {
+      return (json[key] as List<dynamic>? ?? <dynamic>[])
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    return CrrCreatePayload(
+      numeroCrr: json['numeroCrr'] as String? ?? '',
+      localFiscalizacao: json['localFiscalizacao'] as String? ?? '',
+      municipioEstadoFiscalizacao:
+          json['municipioEstadoFiscalizacao'] as String? ?? '',
+      dataFiscalizacao: json['dataFiscalizacao'] as String? ?? '',
+      horaFiscalizacao: json['horaFiscalizacao'] as String? ?? '',
+      medidaAdministrativa: json['medidaAdministrativa'] as String? ??
+          'Remocao do veiculo ao Deposito',
+      localPatio: json['localPatio'] as String? ?? '',
+      placaGuincho: json['placaGuincho'] as String? ?? '',
+      encarregado: json['encarregado'] as String? ?? '',
+      observacao: json['observacao'] as String? ?? '',
+      matriculaAgente: json['matriculaAgente'] as String? ?? '',
+      placa: json['placa'] as String? ?? '',
+      chassi: json['chassi'] as String? ?? '',
+      marca: json['marca'] as String? ?? '',
+      modelo: json['modelo'] as String? ?? '',
+      cor: json['cor'] as String? ?? '',
+      nomeCondutor: json['nomeCondutor'] as String? ?? '',
+      cpfCondutor: json['cpfCondutor'] as String? ?? '',
+      cnh: json['cnh'] as String? ?? '',
+      cnhEstrangeira: json['cnhEstrangeira'] as String? ?? '',
+      aits: _readStringList('aits'),
+      enquadramentos: _readStringList('enquadramentos'),
+      imagens: _readStringList('imagens'),
+      veiculoSemIdentificacao:
+          json['veiculoSemIdentificacao'] as bool? ?? false,
+      situacaoEntrega: json['situacaoEntrega'] as String? ?? '',
+    );
+  }
+
+  CrrCreatePayload copyWith({
+    String? numeroCrr,
+    String? localFiscalizacao,
+    String? municipioEstadoFiscalizacao,
+    String? dataFiscalizacao,
+    String? horaFiscalizacao,
+    String? medidaAdministrativa,
+    String? localPatio,
+    String? placaGuincho,
+    String? encarregado,
+    String? observacao,
+    String? matriculaAgente,
+    String? placa,
+    String? chassi,
+    String? marca,
+    String? modelo,
+    String? cor,
+    String? nomeCondutor,
+    String? cpfCondutor,
+    String? cnh,
+    String? cnhEstrangeira,
+    List<String>? aits,
+    List<String>? enquadramentos,
+    List<String>? imagens,
+    bool? veiculoSemIdentificacao,
+    String? situacaoEntrega,
+  }) {
+    return CrrCreatePayload(
+      numeroCrr: numeroCrr ?? this.numeroCrr,
+      localFiscalizacao: localFiscalizacao ?? this.localFiscalizacao,
+      municipioEstadoFiscalizacao:
+          municipioEstadoFiscalizacao ?? this.municipioEstadoFiscalizacao,
+      dataFiscalizacao: dataFiscalizacao ?? this.dataFiscalizacao,
+      horaFiscalizacao: horaFiscalizacao ?? this.horaFiscalizacao,
+      medidaAdministrativa:
+          medidaAdministrativa ?? this.medidaAdministrativa,
+      localPatio: localPatio ?? this.localPatio,
+      placaGuincho: placaGuincho ?? this.placaGuincho,
+      encarregado: encarregado ?? this.encarregado,
+      observacao: observacao ?? this.observacao,
+      matriculaAgente: matriculaAgente ?? this.matriculaAgente,
+      placa: placa ?? this.placa,
+      chassi: chassi ?? this.chassi,
+      marca: marca ?? this.marca,
+      modelo: modelo ?? this.modelo,
+      cor: cor ?? this.cor,
+      nomeCondutor: nomeCondutor ?? this.nomeCondutor,
+      cpfCondutor: cpfCondutor ?? this.cpfCondutor,
+      cnh: cnh ?? this.cnh,
+      cnhEstrangeira: cnhEstrangeira ?? this.cnhEstrangeira,
+      aits: aits ?? this.aits,
+      enquadramentos: enquadramentos ?? this.enquadramentos,
+      imagens: imagens ?? this.imagens,
+      veiculoSemIdentificacao:
+          veiculoSemIdentificacao ?? this.veiculoSemIdentificacao,
+      situacaoEntrega: situacaoEntrega ?? this.situacaoEntrega,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -74,6 +177,8 @@ class CrrCreatePayload {
       'aits': aits,
       'enquadramentos': enquadramentos,
       'imagens': imagens,
+      'veiculoSemIdentificacao': veiculoSemIdentificacao,
+      'situacaoEntrega': situacaoEntrega,
     };
   }
 }

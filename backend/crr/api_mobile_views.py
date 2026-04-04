@@ -39,7 +39,184 @@ MOBILE_MATRICULA_PARAMETER = OpenApiParameter(
 )
 
 
+def _resposta_erro(mensagem, http_status):
+    return Response({
+        'sucesso': False,
+        'erro': mensagem,
+    }, status=http_status)
+
+
+def _validar_agente(matricula, senha):
+    matricula = (matricula or '').strip()
+    senha = (senha or '').strip()
+
+    if not matricula:
+        return None, _resposta_erro(
+            'Matricula do agente e obrigatoria',
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not senha:
+        return None, _resposta_erro(
+            'Senha e obrigatoria',
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        agente = Agente.objects.get(matricula=matricula)
+    except Agente.DoesNotExist:
+        return None, _resposta_erro(
+            'Matricula nao cadastrada. Contate o administrador.',
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    if not agente.ativo:
+        return None, _resposta_erro(
+            'Agente desativado. Contate o administrador.',
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    if not agente.check_senha(senha):
+        return None, _resposta_erro(
+            'Senha incorreta',
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    return agente, None
+
+
+def _serializar_agente(agente):
+    return {
+        'nome': agente.nome,
+        'matricula': agente.matricula,
+        'assinatura_url': agente.assinatura.url if agente.assinatura else None,
+        'senha_alterada': agente.senha_alterada,
+    }
+
+
+def _serializar_dispositivo_acesso(dispositivo):
+    return {
+        'id': dispositivo.id,
+        'nome': dispositivo.nome,
+        'device_id': dispositivo.device_id,
+        'imei': dispositivo.device_id,
+        'status': dispositivo.status_acesso,
+        'ativo': dispositivo.ativo,
+        'ativado': dispositivo.ativado,
+        'requested_at': dispositivo.solicitado_em,
+        'approved_at': dispositivo.aprovado_em,
+        'requested_by': {
+            'matricula': dispositivo.solicitado_por.matricula,
+            'nome': dispositivo.solicitado_por.nome,
+        } if dispositivo.solicitado_por else None,
+        'blocked_reason': dispositivo.motivo_bloqueio,
+    }
+
+
 # ==================== ATIVACAO E LOGIN ==================== #
+
+@extend_schema(
+    summary='Fluxo unificado de acesso mobile',
+    request=inline_serializer(
+        name='FluxoAcessoRequest',
+        fields={
+            'device_id': serializers.CharField(required=False),
+            'imei': serializers.CharField(required=False),
+            'device_name': serializers.CharField(required=False),
+            'matricula': serializers.CharField(),
+            'senha': serializers.CharField(),
+            'platform': serializers.CharField(required=False),
+            'app_version': serializers.CharField(required=False),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def fluxo_acesso(request):
+    """
+    Fluxo único de acesso do app mobile.
+    Localiza ou registra o dispositivo e retorna o status operacional:
+    approved / pending / blocked.
+    """
+    device_id = (
+        request.data.get('device_id') or request.data.get('imei') or ''
+    ).strip()
+    device_name = (request.data.get('device_name') or '').strip()
+    matricula = request.data.get('matricula', '').strip()
+    senha = request.data.get('senha', '').strip()
+
+    if not device_id:
+        return _resposta_erro(
+            'Identificador do dispositivo e obrigatorio',
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    agente, erro = _validar_agente(matricula, senha)
+    if erro:
+        return erro
+
+    if not device_name:
+        device_name = f'Dispositivo {agente.matricula}'
+
+    from django.utils import timezone
+
+    dispositivo = DispositivoMobile.objects.filter(device_id=device_id).first()
+    criado_agora = False
+
+    if not dispositivo:
+        dispositivo = DispositivoMobile(
+            nome=device_name,
+            device_id=device_id,
+        )
+        dispositivo.registrar_solicitacao(agente)
+        criado_agora = True
+    else:
+        if device_name and dispositivo.nome != device_name:
+            dispositivo.nome = device_name
+
+    if dispositivo.status_acesso == DispositivoMobile.STATUS_BLOCKED or not dispositivo.ativo:
+        dispositivo.status_acesso = DispositivoMobile.STATUS_BLOCKED
+        dispositivo.ultimo_acesso = timezone.now()
+        dispositivo.save()
+        return Response({
+            'sucesso': True,
+            'status': 'blocked',
+            'mensagem': dispositivo.motivo_bloqueio or 'Este dispositivo esta bloqueado. Contate o administrador.',
+            'agente': _serializar_agente(agente),
+            'dispositivo': _serializar_dispositivo_acesso(dispositivo),
+        })
+
+    if dispositivo.status_acesso == DispositivoMobile.STATUS_APPROVED and dispositivo.ativado:
+        dispositivo.ultimo_acesso = timezone.now()
+        if dispositivo.solicitado_por_id is None:
+            dispositivo.solicitado_por = agente
+        dispositivo.save()
+        return Response({
+            'sucesso': True,
+            'status': 'approved',
+            'mensagem': 'Acesso liberado.',
+            'agente': _serializar_agente(agente),
+            'dispositivo': _serializar_dispositivo_acesso(dispositivo),
+            'sessao': {
+                'api_key': dispositivo.api_key,
+            },
+        })
+
+    dispositivo.registrar_solicitacao(agente)
+    dispositivo.ultimo_acesso = timezone.now()
+    dispositivo.save()
+    return Response({
+        'sucesso': True,
+        'status': 'pending',
+        'mensagem': (
+            'Solicitacao de liberacao registrada com sucesso.'
+            if criado_agora else
+            'Este dispositivo ainda aguarda liberacao administrativa.'
+        ),
+        'agente': _serializar_agente(agente),
+        'dispositivo': _serializar_dispositivo_acesso(dispositivo),
+    })
 
 @extend_schema(
     summary='Ativa um dispositivo mobile',
@@ -71,67 +248,38 @@ def ativar_dispositivo(request):
     matricula = request.data.get('matricula', '').strip()
 
     if not codigo:
-        return Response({
-            'sucesso': False,
-            'erro': 'Codigo de ativacao e obrigatorio'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return _resposta_erro(
+            'Codigo de ativacao e obrigatorio',
+            status.HTTP_400_BAD_REQUEST,
+        )
 
     try:
         dispositivo = DispositivoMobile.objects.get(codigo_ativacao=codigo)
     except DispositivoMobile.DoesNotExist:
-        return Response({
-            'sucesso': False,
-            'erro': 'Codigo de ativacao invalido'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return _resposta_erro(
+            'Codigo de ativacao invalido',
+            status.HTTP_404_NOT_FOUND,
+        )
 
-    if not dispositivo.ativo:
-        return Response({
-            'sucesso': False,
-            'erro': 'Dispositivo desativado. Contate o administrador.'
-        }, status=status.HTTP_403_FORBIDDEN)
+    if not dispositivo.ativo or dispositivo.status_acesso == DispositivoMobile.STATUS_BLOCKED:
+        return _resposta_erro(
+            'Dispositivo desativado. Contate o administrador.',
+            status.HTTP_403_FORBIDDEN,
+        )
 
     if dispositivo.ativado:
-        return Response({
-            'sucesso': False,
-            'erro': 'Código de ativação já utilizado. Solicite ao administrador a liberação do dispositivo.'
-        }, status=status.HTTP_403_FORBIDDEN)
-
-    # Valida matricula do agente
-    if not matricula:
-        return Response({
-            'sucesso': False,
-            'erro': 'Matricula do agente e obrigatoria'
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return _resposta_erro(
+            'Código de ativação já utilizado. Solicite ao administrador a liberação do dispositivo.',
+            status.HTTP_403_FORBIDDEN,
+        )
 
     senha = request.data.get('senha', '').strip()
-    if not senha:
-        return Response({
-            'sucesso': False,
-            'erro': 'Senha e obrigatoria'
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    try:
-        agente = Agente.objects.get(matricula=matricula)
-        if not agente.ativo:
-            return Response({
-                'sucesso': False,
-                'erro': 'Agente desativado. Contate o administrador.'
-            }, status=status.HTTP_403_FORBIDDEN)
-    except Agente.DoesNotExist:
-        return Response({
-            'sucesso': False,
-            'erro': 'Matricula nao cadastrada. Contate o administrador.'
-        }, status=status.HTTP_404_NOT_FOUND)
-
-    # Valida senha do agente
-    if not agente.check_senha(senha):
-        return Response({
-            'sucesso': False,
-            'erro': 'Senha incorreta'
-        }, status=status.HTTP_403_FORBIDDEN)
+    agente, erro = _validar_agente(matricula, senha)
+    if erro:
+        return erro
 
     from django.utils import timezone
-    dispositivo.ativado = True
+    dispositivo.aprovar_acesso(agente)
     dispositivo.ultimo_acesso = timezone.now()
     dispositivo.save()
 
@@ -225,11 +373,11 @@ def login_dispositivo(request):
     try:
         dispositivo = DispositivoMobile.objects.get(device_id=device_id)
 
-        if not dispositivo.ativo:
-            return Response({
-                'sucesso': False,
-                'erro': 'Dispositivo desativado. Contate o administrador.'
-            }, status=status.HTTP_403_FORBIDDEN)
+        if not dispositivo.ativo or dispositivo.status_acesso == DispositivoMobile.STATUS_BLOCKED:
+            return _resposta_erro(
+                'Dispositivo desativado. Contate o administrador.',
+                status.HTTP_403_FORBIDDEN,
+            )
 
         # Atualiza ultimo acesso
         from django.utils import timezone
@@ -242,10 +390,10 @@ def login_dispositivo(request):
         })
 
     except DispositivoMobile.DoesNotExist:
-        return Response({
-            'sucesso': False,
-            'erro': 'Dispositivo nao registrado. Faca o registro primeiro.'
-        }, status=status.HTTP_404_NOT_FOUND)
+        return _resposta_erro(
+            'Dispositivo nao registrado. Faca o registro primeiro.',
+            status.HTTP_404_NOT_FOUND,
+        )
 
 
 
@@ -591,6 +739,15 @@ def status_dispositivo(request):
             'device_id': dispositivo.device_id,
             'imei': dispositivo.device_id,
             'ativo': dispositivo.ativo,
+            'ativado': dispositivo.ativado,
+            'status': dispositivo.status_acesso,
+            'requested_at': dispositivo.solicitado_em,
+            'approved_at': dispositivo.aprovado_em,
+            'requested_by': {
+                'matricula': dispositivo.solicitado_por.matricula,
+                'nome': dispositivo.solicitado_por.nome,
+            } if dispositivo.solicitado_por else None,
+            'blocked_reason': dispositivo.motivo_bloqueio,
             'ultimo_acesso': dispositivo.ultimo_acesso,
         },
     })
@@ -636,29 +793,32 @@ def validar_login(request):
     # Valida dispositivo
     try:
         dispositivo = DispositivoMobile.objects.get(
-            api_key=api_key, ativo=True, ativado=True
+            api_key=api_key,
+            ativo=True,
+            ativado=True,
+            status_acesso=DispositivoMobile.STATUS_APPROVED,
         )
     except DispositivoMobile.DoesNotExist:
-        return Response({
-            'sucesso': False,
-            'erro': 'Dispositivo nao encontrado ou desativado'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return _resposta_erro(
+            'Dispositivo nao encontrado ou desativado',
+            status.HTTP_403_FORBIDDEN,
+        )
 
     # Valida que o agente esta ativo
     try:
         agente = Agente.objects.get(matricula=matricula, ativo=True)
     except Agente.DoesNotExist:
-        return Response({
-            'sucesso': False,
-            'erro': 'Agente nao cadastrado ou desativado'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return _resposta_erro(
+            'Agente nao cadastrado ou desativado',
+            status.HTTP_403_FORBIDDEN,
+        )
 
     # Valida senha do agente
     if not agente.check_senha(senha):
-        return Response({
-            'sucesso': False,
-            'erro': 'Senha incorreta'
-        }, status=status.HTTP_403_FORBIDDEN)
+        return _resposta_erro(
+            'Senha incorreta',
+            status.HTTP_403_FORBIDDEN,
+        )
 
     # Atualiza ultimo acesso
     from django.utils import timezone

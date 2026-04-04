@@ -31,6 +31,47 @@ class CrrService {
     }
   }
 
+  Future<List<CrrSummary>> buscarCrrs({
+    String numeroCrr = '',
+    String placa = '',
+    String marca = '',
+    String modelo = '',
+    String data = '',
+  }) async {
+    try {
+      final queryParameters = <String, dynamic>{};
+      if (numeroCrr.trim().isNotEmpty) {
+        queryParameters['numeroCrr'] = numeroCrr.trim();
+      }
+      if (placa.trim().isNotEmpty) {
+        queryParameters['placa'] = placa.trim();
+      }
+      if (marca.trim().isNotEmpty) {
+        queryParameters['marca'] = marca.trim();
+      }
+      if (modelo.trim().isNotEmpty) {
+        queryParameters['modelo'] = modelo.trim();
+      }
+      if (data.trim().isNotEmpty) {
+        queryParameters['data'] = data.trim();
+      }
+
+      final response = await _apiClient.get(
+        'crr/buscar/',
+        authenticated: true,
+        queryParameters: queryParameters,
+      );
+      final dataMap = response.data as Map<String, dynamic>;
+      final crrs = (dataMap['crrs'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(CrrSummary.fromJson)
+          .toList();
+      return crrs;
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
+
   Future<String> obterProximoNumero() async {
     try {
       final response = await _apiClient.get(

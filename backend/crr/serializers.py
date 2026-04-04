@@ -403,10 +403,18 @@ class DispositivoLoginSerializer(DeviceIdentifierMixin, serializers.Serializer):
 
 class DispositivoSerializer(serializers.ModelSerializer):
     imei = serializers.CharField(source='device_id', read_only=True)
+    solicitado_por_matricula = serializers.CharField(
+        source='solicitado_por.matricula',
+        read_only=True,
+    )
 
     class Meta:
         model = DispositivoMobile
-        fields = ['id', 'nome', 'device_id', 'imei', 'api_key', 'ativo']
+        fields = [
+            'id', 'nome', 'device_id', 'imei', 'api_key', 'ativo',
+            'status_acesso', 'solicitado_por_matricula',
+            'solicitado_em', 'aprovado_em', 'motivo_bloqueio',
+        ]
         read_only_fields = ['api_key', 'imei']
 
 

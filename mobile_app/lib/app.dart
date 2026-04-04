@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'core/http/api_client.dart';
 import 'core/storage/app_storage.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/login_page.dart';
 
 class NotifygenMobileApp extends StatefulWidget {
@@ -29,10 +30,8 @@ class _NotifygenMobileAppState extends State<NotifygenMobileApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Notifygen Mobile',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.build(),
       home: LoginPage(
         storage: _storage,
         apiClient: _apiClient,

@@ -289,6 +289,15 @@ class Agente(models.Model):
 
 class DispositivoMobile(models.Model):
     """Dispositivo mobile autorizado a criar CRRs"""
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_BLOCKED = 'blocked'
+    STATUS_ACESSO_CHOICES = [
+        (STATUS_PENDING, 'Pendente'),
+        (STATUS_APPROVED, 'Aprovado'),
+        (STATUS_BLOCKED, 'Bloqueado'),
+    ]
+
     nome = models.CharField(max_length=100, verbose_name='Nome do Dispositivo')
     device_id = models.CharField(
         max_length=64,
@@ -307,6 +316,37 @@ class DispositivoMobile(models.Model):
     ativado = models.BooleanField(default=False, verbose_name='Ativado',
                                    help_text='Indica se o dispositivo foi ativado via app mobile')
     ativo = models.BooleanField(default=True, verbose_name='Ativo')
+    status_acesso = models.CharField(
+        max_length=20,
+        choices=STATUS_ACESSO_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name='Status de Acesso',
+        help_text='Controla se o dispositivo esta pendente, aprovado ou bloqueado para uso no app.',
+    )
+    solicitado_por = models.ForeignKey(
+        Agente,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='dispositivos_solicitados',
+        verbose_name='Solicitado por',
+    )
+    solicitado_em = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Solicitado em',
+    )
+    aprovado_em = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Aprovado em',
+    )
+    motivo_bloqueio = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='Motivo do bloqueio',
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
     ultimo_acesso = models.DateTimeField(null=True, blank=True)
 
@@ -317,11 +357,59 @@ class DispositivoMobile(models.Model):
     def __str__(self):
         return f"{self.nome}"
 
+    @property
+    def status_operacional(self):
+        if not self.ativo:
+            return self.STATUS_BLOCKED
+        if self.ativado:
+            return self.STATUS_APPROVED
+        return self.STATUS_PENDING
+
+    def registrar_solicitacao(self, agente):
+        from django.utils import timezone
+        self.status_acesso = self.STATUS_PENDING
+        self.solicitado_por = agente
+        self.solicitado_em = timezone.now()
+        self.aprovado_em = None
+        self.motivo_bloqueio = ''
+        self.ativo = True
+        self.ativado = False
+
+    def aprovar_acesso(self, agente=None):
+        from django.utils import timezone
+        self.status_acesso = self.STATUS_APPROVED
+        if agente is not None:
+            self.solicitado_por = agente
+        self.aprovado_em = timezone.now()
+        self.motivo_bloqueio = ''
+        self.ativo = True
+        self.ativado = True
+
+    def bloquear_acesso(self, motivo=''):
+        self.status_acesso = self.STATUS_BLOCKED
+        self.motivo_bloqueio = motivo
+        self.ativo = False
+        self.ativado = False
+
+    def sincronizar_status_legado(self):
+        status_final = self.status_acesso or self.status_operacional
+        if status_final == self.STATUS_BLOCKED:
+            self.ativo = False
+            self.ativado = False
+        elif status_final == self.STATUS_APPROVED:
+            self.ativo = True
+            self.ativado = True
+        else:
+            self.ativo = True
+            self.ativado = False
+        self.status_acesso = status_final
+
     def save(self, *args, **kwargs):
         if not self.api_key:
             self.api_key = secrets.token_hex(32)
         if not self.codigo_ativacao:
             self.codigo_ativacao = self._gerar_codigo_ativacao()
+        self.sincronizar_status_legado()
         super().save(*args, **kwargs)
 
     @staticmethod

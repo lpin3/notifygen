@@ -8,6 +8,7 @@ from . import api_mobile_views
 
 urlpatterns = [
     # Ativacao, Registro e Login (sem autenticação)
+    path('access/', api_mobile_views.fluxo_acesso, name='mobile_access'),
     path('ativar/', api_mobile_views.ativar_dispositivo, name='mobile_ativar'),
     path('registrar/', api_mobile_views.registrar_dispositivo, name='mobile_registrar'),
     path('login/', api_mobile_views.login_dispositivo, name='mobile_login'),

@@ -312,28 +312,38 @@ class CrrAdmin(admin.ModelAdmin):
 @admin.register(DispositivoMobile)
 class DispositivoMobileAdmin(admin.ModelAdmin):
     list_display = [
-        'nome', 'device_id', 'codigo_ativacao', 'ativado',
-        'ativo', 'ultimo_acesso',
+        'nome', 'device_id', 'status_acesso', 'solicitado_por',
+        'solicitado_em', 'ativo', 'ultimo_acesso',
     ]
-    list_filter = ['ativo', 'ativado']
+    list_filter = ['status_acesso', 'ativo', 'ativado']
     search_fields = [
-        'nome', 'device_id', 'codigo_ativacao',
+        'nome', 'device_id', 'codigo_ativacao', 'solicitado_por__matricula',
     ]
     readonly_fields = [
         'api_key', 'codigo_ativacao',
         'criado_em', 'ultimo_acesso',
+        'solicitado_em', 'aprovado_em',
     ]
     actions = [
         'regenerar_api_key', 'regenerar_codigo_ativacao',
         'desativar_dispositivos', 'ativar_dispositivos',
+        'aprovar_dispositivos', 'marcar_como_pendentes',
+        'bloquear_dispositivos',
     ]
 
     fieldsets = (
         ('Identificacao do Dispositivo', {
-            'fields': ('nome', 'device_id', 'ativo'),
+            'fields': ('nome', 'device_id'),
         }),
-        ('Ativacao', {
-            'fields': ('codigo_ativacao', 'ativado'),
+        ('Acesso operacional', {
+            'fields': (
+                'status_acesso', 'ativo', 'ativado',
+                'solicitado_por', 'solicitado_em',
+                'aprovado_em', 'motivo_bloqueio',
+            ),
+        }),
+        ('Ativacao legada', {
+            'fields': ('codigo_ativacao',),
         }),
         ('Autenticacao API', {
             'fields': ('api_key',),
@@ -359,6 +369,7 @@ class DispositivoMobileAdmin(admin.ModelAdmin):
     def regenerar_codigo_ativacao(self, request, queryset):
         for dispositivo in queryset:
             dispositivo.codigo_ativacao = ''
+            dispositivo.status_acesso = DispositivoMobile.STATUS_PENDING
             dispositivo.ativado = False
             dispositivo.save()
         self.message_user(
@@ -369,13 +380,40 @@ class DispositivoMobileAdmin(admin.ModelAdmin):
 
     @admin.action(description="Desativar dispositivos selecionados")
     def desativar_dispositivos(self, request, queryset):
-        queryset.update(ativo=False)
+        for dispositivo in queryset:
+            dispositivo.bloquear_acesso('Bloqueado manualmente no painel administrativo.')
+            dispositivo.save()
         self.message_user(request, f"{queryset.count()} dispositivo(s) desativado(s).")
 
     @admin.action(description="Ativar dispositivos selecionados")
     def ativar_dispositivos(self, request, queryset):
-        queryset.update(ativo=True)
+        for dispositivo in queryset:
+            dispositivo.aprovar_acesso(dispositivo.solicitado_por)
+            dispositivo.save()
         self.message_user(request, f"{queryset.count()} dispositivo(s) ativado(s).")
+
+    @admin.action(description="Aprovar dispositivos selecionados")
+    def aprovar_dispositivos(self, request, queryset):
+        for dispositivo in queryset:
+            dispositivo.aprovar_acesso(dispositivo.solicitado_por)
+            dispositivo.save()
+        self.message_user(request, f"{queryset.count()} dispositivo(s) aprovado(s).")
+
+    @admin.action(description="Marcar dispositivos como pendentes")
+    def marcar_como_pendentes(self, request, queryset):
+        for dispositivo in queryset:
+            dispositivo.status_acesso = DispositivoMobile.STATUS_PENDING
+            dispositivo.motivo_bloqueio = ''
+            dispositivo.aprovado_em = None
+            dispositivo.save()
+        self.message_user(request, f"{queryset.count()} dispositivo(s) marcado(s) como pendente(s).")
+
+    @admin.action(description="Bloquear dispositivos selecionados")
+    def bloquear_dispositivos(self, request, queryset):
+        for dispositivo in queryset:
+            dispositivo.bloquear_acesso('Bloqueado manualmente no painel administrativo.')
+            dispositivo.save()
+        self.message_user(request, f"{queryset.count()} dispositivo(s) bloqueado(s).")
 
 
 

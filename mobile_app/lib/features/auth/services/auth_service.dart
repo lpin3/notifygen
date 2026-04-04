@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/http/api_client.dart';
 import '../../../core/storage/app_storage.dart';
+import '../models/access_request_result.dart';
 import '../models/device_activation_response.dart';
 import '../models/device_registration_response.dart';
 
@@ -38,6 +39,44 @@ class AuthService {
       return DeviceRegistrationResponse.fromJson(
         response.data as Map<String, dynamic>,
       );
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
+
+  Future<AccessRequestResult> requestAccess({
+    required String deviceId,
+    required String deviceName,
+    required String matricula,
+    required String senha,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        'access/',
+        data: <String, dynamic>{
+          'device_id': deviceId,
+          'imei': deviceId,
+          'device_name': deviceName,
+          'matricula': matricula,
+          'senha': senha,
+        },
+      );
+
+      final parsed = AccessRequestResult.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      if (parsed.isApproved) {
+        if ((parsed.apiKey ?? '').isEmpty) {
+          throw Exception('Sessao do dispositivo nao retornada pelo servidor.');
+        }
+        await _storage.writeApiKey(parsed.apiKey!);
+        await _storage.writeMatricula(matricula);
+      } else {
+        await logout();
+      }
+
+      return parsed;
     } on DioException catch (error) {
       throw Exception(_extractMessage(error));
     }

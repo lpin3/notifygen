@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 
@@ -7,6 +9,7 @@ class AppStorage {
   static const _apiKeyKey = 'api_key';
   static const _matriculaKey = 'matricula';
   static const _deviceIdKey = 'device_id';
+  static const _draftsKey = 'pending_crr_drafts';
 
   final FlutterSecureStorage _storage;
   final Uuid _uuid = const Uuid();
@@ -20,6 +23,27 @@ class AppStorage {
 
   Future<void> writeMatricula(String value) =>
       _storage.write(key: _matriculaKey, value: value);
+
+  Future<List<Map<String, dynamic>>> readPendingDrafts() async {
+    final raw = await _storage.read(key: _draftsKey);
+    if (raw == null || raw.isEmpty) {
+      return <Map<String, dynamic>>[];
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List<dynamic>) {
+      return <Map<String, dynamic>>[];
+    }
+
+    return decoded
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<void> writePendingDrafts(List<Map<String, dynamic>> drafts) async {
+    await _storage.write(key: _draftsKey, value: jsonEncode(drafts));
+  }
 
   Future<String> getOrCreateDeviceId() async {
     final current = await _storage.read(key: _deviceIdKey);
