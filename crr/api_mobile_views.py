@@ -3,7 +3,9 @@
 API para aplicativo mobile de cadastro de CRR.
 Autenticação via API Key (header X-API-Key).
 """
-from rest_framework import status
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,14 +13,46 @@ from rest_framework.response import Response
 from .models import DispositivoMobile, TabelaEnquadramento, Agente
 from .permissions import IsDispositivoMobile
 from .serializers import (
+    CrrMobileReadSerializer,
     DispositivoSerializer,
     CrrMobileSerializer,
+    DispositivoLoginSerializer,
+    DispositivoRegistroSerializer,
     TabelaEnquadramentoSerializer,
+)
+
+
+MOBILE_API_KEY_PARAMETER = OpenApiParameter(
+    name='X-API-Key',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.HEADER,
+    required=True,
+    description='API Key do dispositivo mobile.',
+)
+
+MOBILE_MATRICULA_PARAMETER = OpenApiParameter(
+    name='X-Matricula',
+    type=OpenApiTypes.STR,
+    location=OpenApiParameter.HEADER,
+    required=False,
+    description='Matrícula do agente usada em alguns endpoints mobile.',
 )
 
 
 # ==================== ATIVACAO E LOGIN ==================== #
 
+@extend_schema(
+    summary='Ativa um dispositivo mobile',
+    request=inline_serializer(
+        name='AtivarDispositivoRequest',
+        fields={
+            'codigo': serializers.CharField(),
+            'matricula': serializers.CharField(),
+            'senha': serializers.CharField(),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def ativar_dispositivo(request):
@@ -110,6 +144,11 @@ def ativar_dispositivo(request):
     })
 
 
+@extend_schema(
+    summary='Registra um dispositivo mobile',
+    request=DispositivoRegistroSerializer,
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def registrar_dispositivo(request):
@@ -160,6 +199,11 @@ def registrar_dispositivo(request):
     }, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    summary='Realiza login do dispositivo por IMEI',
+    request=DispositivoLoginSerializer,
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_dispositivo(request):
@@ -208,6 +252,11 @@ def login_dispositivo(request):
 
 
 
+@extend_schema(
+    summary='Obtém o próximo número de CRR',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['GET'])
 @permission_classes([IsDispositivoMobile])
 def obter_proximo_numero(request):
@@ -239,6 +288,11 @@ def obter_proximo_numero(request):
 
 # ==================== CRUD DE CRR ==================== #
 
+@extend_schema(
+    summary='Lista CRRs do agente',
+    parameters=[MOBILE_API_KEY_PARAMETER, MOBILE_MATRICULA_PARAMETER],
+    responses=CrrMobileReadSerializer(many=True),
+)
 @api_view(['GET'])
 @permission_classes([IsDispositivoMobile])
 def listar_crrs(request):
@@ -266,6 +320,18 @@ def listar_crrs(request):
     })
 
 
+@extend_schema(
+    summary='Busca CRRs por filtros',
+    parameters=[
+        MOBILE_API_KEY_PARAMETER,
+        OpenApiParameter('placa', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Placa do veículo'),
+        OpenApiParameter('marca', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Marca do veículo'),
+        OpenApiParameter('modelo', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Modelo do veículo'),
+        OpenApiParameter('data', OpenApiTypes.DATE, OpenApiParameter.QUERY, description='Data da fiscalização'),
+        OpenApiParameter('numeroCrr', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Número do CRR'),
+    ],
+    responses=CrrMobileReadSerializer(many=True),
+)
 @api_view(['GET'])
 @permission_classes([IsDispositivoMobile])
 def buscar_crrs(request):
@@ -316,6 +382,12 @@ def buscar_crrs(request):
     })
 
 
+@extend_schema(
+    summary='Cria um novo CRR via mobile',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    request=CrrMobileSerializer,
+    responses=CrrMobileSerializer,
+)
 @api_view(['POST'])
 @permission_classes([IsDispositivoMobile])
 def criar_crr(request):
@@ -344,6 +416,18 @@ def criar_crr(request):
 
 
 
+@extend_schema(
+    summary='Atualiza dados do condutor do CRR',
+    parameters=[MOBILE_API_KEY_PARAMETER, MOBILE_MATRICULA_PARAMETER],
+    request=inline_serializer(
+        name='AtualizarCondutorCrrRequest',
+        fields={
+            'situacaoEntrega': serializers.CharField(required=False),
+            'assinaturaCondutor': serializers.CharField(required=False),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['PATCH'])
 @permission_classes([IsDispositivoMobile])
 def atualizar_condutor_crr(request, crr_id):
@@ -409,6 +493,15 @@ def atualizar_condutor_crr(request, crr_id):
     return Response({'sucesso': True, 'mensagem': 'Condutor atualizado com sucesso', 'condutor_atualizado': condutor_atualizado})
 
 
+@extend_schema(
+    summary='Envia o CRR por email',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    request=inline_serializer(
+        name='EnviarEmailCondutorRequest',
+        fields={'email': serializers.EmailField()},
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([IsDispositivoMobile])
 def enviar_email_condutor_view(request, crr_id):
@@ -453,6 +546,11 @@ def enviar_email_condutor_view(request, crr_id):
 
 # ==================== DADOS AUXILIARES ==================== #
 
+@extend_schema(
+    summary='Lista enquadramentos disponíveis',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    responses=TabelaEnquadramentoSerializer(many=True),
+)
 @api_view(['GET'])
 @permission_classes([IsDispositivoMobile])
 def listar_enquadramentos(request):
@@ -472,6 +570,11 @@ def listar_enquadramentos(request):
     })
 
 
+@extend_schema(
+    summary='Retorna o status do dispositivo',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['GET'])
 @permission_classes([IsDispositivoMobile])
 def status_dispositivo(request):
@@ -497,6 +600,18 @@ def status_dispositivo(request):
 
 # ==================== VALIDAÇÃO DE LOGIN ==================== #
 
+@extend_schema(
+    summary='Valida login do app mobile',
+    request=inline_serializer(
+        name='ValidarLoginRequest',
+        fields={
+            'api_key': serializers.CharField(),
+            'matricula': serializers.CharField(),
+            'senha': serializers.CharField(),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def validar_login(request):
@@ -566,6 +681,18 @@ def validar_login(request):
 
 # ==================== ALTERAÇÃO DE SENHA ==================== #
 
+@extend_schema(
+    summary='Altera a senha do agente',
+    parameters=[MOBILE_API_KEY_PARAMETER],
+    request=inline_serializer(
+        name='AlterarSenhaRequest',
+        fields={
+            'matricula': serializers.CharField(),
+            'nova_senha': serializers.CharField(),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
 @api_view(['POST'])
 @permission_classes([IsDispositivoMobile])
 def alterar_senha(request):
@@ -617,6 +744,7 @@ def alterar_senha(request):
 
 # ==================== VERSÃO DO APP ==================== #
 
+@extend_schema(summary='Retorna a versão atual do app mobile', responses=OpenApiTypes.OBJECT)
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def app_version(request):

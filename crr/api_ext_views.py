@@ -2,12 +2,24 @@ from rest_framework.decorators import api_view, throttle_classes, authentication
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from .models import Crr, Veiculo
 from .serializers import ConsultaExterna
 from rest_framework.permissions import AllowAny
 from django.shortcuts import render
 
 
+@extend_schema(
+    summary='Consulta pública de CRR',
+    description='Consulta um CRR publicamente por placa, chassi ou número do CRR.',
+    parameters=[
+        OpenApiParameter('placa', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Placa do veículo'),
+        OpenApiParameter('chassi', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Chassi do veículo'),
+        OpenApiParameter('numeroCrr', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Número do CRR'),
+    ],
+    responses={200: ConsultaExterna},
+)
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([AllowAny])

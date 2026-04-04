@@ -1,5 +1,7 @@
 from rest_framework import viewsets, mixins, status as drf_status
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
 from .models import Crr, Veiculo, Condutor, TabelaEnquadramento, Ait, Enquadramento
 from .serializers import (
@@ -15,6 +17,25 @@ from .serializers import (
 from .permissions import IsJavaUser
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary='Lista CRRs',
+        description='Lista CRRs com filtros opcionais por número, placa, chassi, marca, modelo e status.',
+        parameters=[
+            OpenApiParameter('numeroCrr', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Número do CRR'),
+            OpenApiParameter('placa', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Placa do veículo'),
+            OpenApiParameter('chassi', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Chassi do veículo'),
+            OpenApiParameter('marca', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Marca do veículo'),
+            OpenApiParameter('modelo', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Modelo do veículo'),
+            OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Status do CRR'),
+        ],
+    ),
+    retrieve=extend_schema(summary='Detalha um CRR'),
+    partial_update=extend_schema(
+        summary='Libera um CRR',
+        description="Atualiza o status do CRR. Apenas o valor 'liberado' é aceito.",
+    ),
+)
 class CrrViewSet(
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,

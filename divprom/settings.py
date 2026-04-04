@@ -70,6 +70,7 @@ REST_FRAMEWORK = {
 
     ## Rate limiting para usuários anônimos     
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
@@ -80,6 +81,15 @@ REST_FRAMEWORK = {
     }
 
      }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Notifygen API',
+    'DESCRIPTION': 'Documentação OpenAPI das APIs web e mobile do sistema.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': r'/api/v1',
+    'COMPONENT_SPLIT_REQUEST': True,
+}
 
 # Permissão para POST, PUT, DELETE
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8000','https://divprom.herokuapp.com']  # ajuste se necessário
@@ -112,6 +122,7 @@ INSTALLED_APPS = [
     'notificacao',
     'import_export',
     'rest_framework',
+    'drf_spectacular',
     'rest_framework_simplejwt',
     'authentication',
     "bootstrap5",
