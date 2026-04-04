@@ -539,8 +539,11 @@ class CrrMobileSerializer(serializers.ModelSerializer):
         if not value:
             from django.db import connection, transaction
             with transaction.atomic():
-                with connection.cursor() as cursor:
-                    cursor.execute('LOCK TABLE crr_crr IN SHARE ROW EXCLUSIVE MODE')
+                if connection.vendor == 'postgresql':
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            'LOCK TABLE crr_crr IN SHARE ROW EXCLUSIVE MODE'
+                        )
                 from django.db.models import Max, IntegerField
                 from django.db.models.functions import Cast, Substr
                 resultado = Crr.objects.filter(

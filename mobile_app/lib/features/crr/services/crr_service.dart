@@ -133,8 +133,38 @@ class CrrService {
     if (data is Map<String, dynamic>) {
       return data['erro'] as String? ??
           data['mensagem'] as String? ??
+          _flattenErrors(data['erros']) ??
           'Falha na comunicacao com a API.';
     }
-    return 'Falha na comunicacao com a API.';
+    return error.message ?? 'Falha na comunicacao com a API.';
+  }
+
+  String? _flattenErrors(Object? value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
+    }
+    if (value is List) {
+      final items = value
+          .map(_flattenErrors)
+          .whereType<String>()
+          .where((item) => item.trim().isNotEmpty)
+          .toList();
+      if (items.isNotEmpty) {
+        return items.join('\n');
+      }
+    }
+    if (value is Map) {
+      final messages = <String>[];
+      value.forEach((key, item) {
+        final message = _flattenErrors(item);
+        if (message != null && message.trim().isNotEmpty) {
+          messages.add('$key: $message');
+        }
+      });
+      if (messages.isNotEmpty) {
+        return messages.join('\n');
+      }
+    }
+    return null;
   }
 }
