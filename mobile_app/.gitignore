@@ -1,0 +1,15 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+.idea/
+.metadata
+.packages
+build/
+ios/Pods/
+ios/Runner.xcworkspace/
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+pubspec.lock
