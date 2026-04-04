@@ -54,7 +54,7 @@ class _HomePageState extends State<HomePage> {
       }
       setState(() {
         _statusText =
-            'Dispositivo: ${dispositivo['nome'] ?? ''}\nAtivo: ${dispositivo['ativo'] ?? ''}\nIMEI/ID: ${dispositivo['imei'] ?? ''}';
+            'Dispositivo: ${dispositivo['nome'] ?? ''}\nAtivo: ${dispositivo['ativo'] ?? ''}\nID do dispositivo: ${dispositivo['device_id'] ?? dispositivo['imei'] ?? ''}';
       });
     } catch (error) {
       _showError(error.toString());

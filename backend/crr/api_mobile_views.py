@@ -153,24 +153,26 @@ def ativar_dispositivo(request):
 @permission_classes([AllowAny])
 def registrar_dispositivo(request):
     """
-    Registra um novo dispositivo mobile via IMEI.
+    Registra um novo dispositivo mobile via identificador do app.
 
     POST /api/v1/mobile/registrar/
     {
         "nome": "Tablet Agente 01",
-        "imei": "123456789012345",
+        "device_id": "f2811296-afb2-459f-a530-4e7867c44e69",
         "matricula": "12345"
     }
 
-    Se o dispositivo ja existir (mesmo IMEI), retorna os dados do dispositivo existente.
+    Tambem aceita o campo legado "imei" por compatibilidade.
+    Se o dispositivo ja existir (mesmo identificador), retorna os dados do dispositivo existente.
     O dispositivo deve ser ativado pelo administrador no painel web.
     """
-    imei = request.data.get('imei')
-    nome = request.data.get('nome', 'Dispositivo Mobile')
-    matricula = request.data.get('matricula', '')
+    serializer = DispositivoRegistroSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-    # Verifica se dispositivo ja existe com este IMEI
-    dispositivo = DispositivoMobile.objects.filter(imei=imei).first()
+    device_id = serializer.validated_data['device_id']
+
+    # Verifica se dispositivo ja existe com este identificador
+    dispositivo = DispositivoMobile.objects.filter(device_id=device_id).first()
 
     if dispositivo:
         # Atualiza ultimo acesso
@@ -186,10 +188,7 @@ def registrar_dispositivo(request):
         })
 
     # Cria novo dispositivo
-    dispositivo = DispositivoMobile.objects.create(
-        nome=nome,
-        imei=imei,
-    )
+    dispositivo = serializer.save()
 
     return Response({
         'sucesso': True,
@@ -200,7 +199,7 @@ def registrar_dispositivo(request):
 
 
 @extend_schema(
-    summary='Realiza login do dispositivo por IMEI',
+    summary='Realiza login do dispositivo por identificador',
     request=DispositivoLoginSerializer,
     responses=OpenApiTypes.OBJECT,
 )
@@ -208,25 +207,23 @@ def registrar_dispositivo(request):
 @permission_classes([AllowAny])
 def login_dispositivo(request):
     """
-    Login de dispositivo existente via IMEI.
+    Login de dispositivo existente via identificador do app.
 
     POST /api/v1/mobile/login/
     {
-        "imei": "123456789012345"
+        "device_id": "f2811296-afb2-459f-a530-4e7867c44e69"
     }
 
+    Tambem aceita o campo legado "imei" por compatibilidade.
     Retorna dados do dispositivo.
     """
-    imei = request.data.get('imei')
+    serializer = DispositivoLoginSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-    if not imei:
-        return Response({
-            'sucesso': False,
-            'erro': 'IMEI e obrigatorio'
-        }, status=status.HTTP_400_BAD_REQUEST)
+    device_id = serializer.validated_data['device_id']
 
     try:
-        dispositivo = DispositivoMobile.objects.get(imei=imei)
+        dispositivo = DispositivoMobile.objects.get(device_id=device_id)
 
         if not dispositivo.ativo:
             return Response({
@@ -591,7 +588,8 @@ def status_dispositivo(request):
         'dispositivo': {
             'id': dispositivo.id,
             'nome': dispositivo.nome,
-            'imei': dispositivo.imei,
+            'device_id': dispositivo.device_id,
+            'imei': dispositivo.device_id,
             'ativo': dispositivo.ativo,
             'ultimo_acesso': dispositivo.ultimo_acesso,
         },

@@ -30,6 +30,7 @@ class AuthService {
         'registrar/',
         data: <String, dynamic>{
           'nome': deviceName,
+          'device_id': deviceId,
           'imei': deviceId,
         },
       );

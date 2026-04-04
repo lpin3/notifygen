@@ -290,9 +290,14 @@ class Agente(models.Model):
 class DispositivoMobile(models.Model):
     """Dispositivo mobile autorizado a criar CRRs"""
     nome = models.CharField(max_length=100, verbose_name='Nome do Dispositivo')
-    imei = models.CharField(max_length=20, unique=True, blank=True, null=True,
-                           verbose_name='IMEI do Dispositivo',
-                           help_text='Numero IMEI unico do dispositivo (15-17 digitos)')
+    device_id = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name='Identificador do Dispositivo',
+        help_text='Identificador unico gerado pelo app mobile (ex.: UUID)',
+    )
     api_key = models.CharField(max_length=64, unique=True, verbose_name='API Key')
     codigo_ativacao = models.CharField(
         max_length=8, unique=True, blank=True,

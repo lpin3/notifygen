@@ -21,4 +21,4 @@ Projeto Flutter inicial para consumir a API mobile deste repositório.
 
 ## Observação
 
-O backend atual usa o campo `imei`. Neste app ele é preenchido com um identificador UUID persistido localmente, o que funciona melhor em Flutter do que depender do IMEI real do aparelho.
+O identificador persistido do dispositivo no backend e no app e `device_id`. Durante a transicao, a API ainda aceita e retorna o campo legado `imei` como alias de compatibilidade.

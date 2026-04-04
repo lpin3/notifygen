@@ -368,38 +368,46 @@ class ConsultaExterna(serializers.ModelSerializer):
         return None
 
 
-class DispositivoRegistroSerializer(serializers.Serializer):
-    nome = serializers.CharField(max_length=100)
-    imei = serializers.CharField(max_length=20)
-    matricula = serializers.CharField(max_length=20, required=False, allow_blank=True)
+class DeviceIdentifierMixin:
+    def validate(self, attrs):
+        device_id = (attrs.get('device_id') or attrs.get('imei') or '').strip()
+        if not device_id:
+            raise serializers.ValidationError({
+                'device_id': 'Identificador do dispositivo e obrigatorio'
+            })
+        attrs['device_id'] = device_id
+        return attrs
 
-    def validate_imei(self, value):
-        dispositivo = DispositivoMobile.objects.filter(imei=value).first()
-        if dispositivo:
-            raise serializers.ValidationError(
-                f"DEVICE_EXISTS:{dispositivo.api_key}"
-            )
-        return value
+
+class DispositivoRegistroSerializer(DeviceIdentifierMixin, serializers.Serializer):
+    nome = serializers.CharField(max_length=100)
+    device_id = serializers.CharField(max_length=64, required=False)
+    imei = serializers.CharField(max_length=64, required=False, write_only=True)
+    matricula = serializers.CharField(max_length=20, required=False, allow_blank=True)
 
     def create(self, validated_data):
         validated_data.pop('matricula', '')
+        validated_data.pop('imei', None)
         dispositivo = DispositivoMobile.objects.create(
             nome=validated_data['nome'],
-            imei=validated_data['imei'],
+            device_id=validated_data['device_id'],
         )
         return dispositivo
 
 
-class DispositivoLoginSerializer(serializers.Serializer):
-    imei = serializers.CharField(max_length=20)
+class DispositivoLoginSerializer(DeviceIdentifierMixin, serializers.Serializer):
+    device_id = serializers.CharField(max_length=64, required=False)
+    imei = serializers.CharField(max_length=64, required=False, write_only=True)
     api_key = serializers.CharField(max_length=64, required=False, allow_blank=True)
 
 
 class DispositivoSerializer(serializers.ModelSerializer):
+    imei = serializers.CharField(source='device_id', read_only=True)
+
     class Meta:
         model = DispositivoMobile
-        fields = ['id', 'nome', 'imei', 'api_key', 'ativo']
-        read_only_fields = ['api_key']
+        fields = ['id', 'nome', 'device_id', 'imei', 'api_key', 'ativo']
+        read_only_fields = ['api_key', 'imei']
 
 
 class CrrMobileReadSerializer(serializers.ModelSerializer):

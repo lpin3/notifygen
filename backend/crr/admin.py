@@ -312,12 +312,12 @@ class CrrAdmin(admin.ModelAdmin):
 @admin.register(DispositivoMobile)
 class DispositivoMobileAdmin(admin.ModelAdmin):
     list_display = [
-        'nome', 'codigo_ativacao', 'ativado',
+        'nome', 'device_id', 'codigo_ativacao', 'ativado',
         'ativo', 'ultimo_acesso',
     ]
     list_filter = ['ativo', 'ativado']
     search_fields = [
-        'nome', 'imei', 'codigo_ativacao',
+        'nome', 'device_id', 'codigo_ativacao',
     ]
     readonly_fields = [
         'api_key', 'codigo_ativacao',
@@ -330,13 +330,13 @@ class DispositivoMobileAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Identificacao do Dispositivo', {
-            'fields': ('nome', 'ativo'),
+            'fields': ('nome', 'device_id', 'ativo'),
         }),
         ('Ativacao', {
             'fields': ('codigo_ativacao', 'ativado'),
         }),
         ('Autenticacao API', {
-            'fields': ('api_key', 'imei'),
+            'fields': ('api_key',),
             'classes': ('collapse',),
         }),
         ('Informacoes do Sistema', {
