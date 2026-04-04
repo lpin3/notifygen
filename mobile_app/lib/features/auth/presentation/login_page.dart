@@ -21,6 +21,9 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const String _activationCodeAlreadyUsedMessage =
+      'Código de ativação já utilizado.';
+
   late final AuthService _authService;
   late final CrrService _crrService;
   final _deviceNameController = TextEditingController(text: 'Dispositivo Flutter');
@@ -99,20 +102,44 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _activateDevice() async {
     setState(() => _busy = true);
     try {
-      final activation = await _authService.activateDevice(
-        code: _codeController.text.trim(),
-        matricula: _matriculaController.text.trim(),
-        senha: _senhaController.text.trim(),
-      );
+      final code = _codeController.text.trim();
+      final matricula = _matriculaController.text.trim();
+      final senha = _senhaController.text.trim();
+
+      bool activatedNow = false;
+      bool senhaAlterada = true;
+
+      if (code.isNotEmpty) {
+        try {
+          final activation = await _authService.activateDevice(
+            code: code,
+            matricula: matricula,
+            senha: senha,
+          );
+          activatedNow = true;
+          senhaAlterada = activation.senhaAlterada;
+        } catch (error) {
+          final message = error.toString().replaceFirst('Exception: ', '');
+          if (!message.contains(_activationCodeAlreadyUsedMessage)) {
+            rethrow;
+          }
+
+          await _authService.loginDevice(deviceId: _deviceId);
+        }
+      } else {
+        await _authService.loginDevice(deviceId: _deviceId);
+      }
 
       final apiKey = await _authService.readApiKey();
-      if (apiKey != null && apiKey.isNotEmpty) {
-        await _authService.validateLogin(
-          apiKey: apiKey,
-          matricula: _matriculaController.text.trim(),
-          senha: _senhaController.text.trim(),
-        );
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('Nao foi possivel recuperar a sessao do dispositivo.');
       }
+
+      await _authService.validateLogin(
+        apiKey: apiKey,
+        matricula: matricula,
+        senha: senha,
+      );
 
       if (!mounted) {
         return;
@@ -121,9 +148,11 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            activation.senhaAlterada
-                ? 'Dispositivo ativado com sucesso.'
-                : 'Ativado. O agente ainda usa a senha inicial.',
+            activatedNow
+                ? (senhaAlterada
+                    ? 'Dispositivo ativado com sucesso.'
+                    : 'Ativado. O agente ainda usa a senha inicial.')
+                : 'Login realizado com sucesso.'
           ),
         ),
       );
@@ -203,6 +232,7 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _codeController,
                       decoration: const InputDecoration(
                         labelText: 'Codigo de ativacao',
+                        helperText: 'Use apenas na primeira ativacao deste dispositivo.',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -226,7 +256,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _activateDevice,
-                      child: const Text('Ativar e entrar'),
+                      child: const Text('Entrar'),
                     ),
                   ],
                 ),

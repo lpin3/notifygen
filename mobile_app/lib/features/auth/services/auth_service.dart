@@ -70,6 +70,34 @@ class AuthService {
     }
   }
 
+  Future<String> loginDevice({
+    required String deviceId,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        'login/',
+        data: <String, dynamic>{
+          'device_id': deviceId,
+          'imei': deviceId,
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final dispositivo =
+          data['dispositivo'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final apiKey = dispositivo['api_key'] as String? ?? '';
+
+      if (apiKey.isEmpty) {
+        throw Exception('API Key do dispositivo nao retornada pelo servidor.');
+      }
+
+      await _storage.writeApiKey(apiKey);
+      return apiKey;
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
+
   Future<void> validateLogin({
     required String apiKey,
     required String matricula,
@@ -84,6 +112,7 @@ class AuthService {
           'senha': senha,
         },
       );
+      await _storage.writeMatricula(matricula);
     } on DioException catch (error) {
       throw Exception(_extractMessage(error));
     }
