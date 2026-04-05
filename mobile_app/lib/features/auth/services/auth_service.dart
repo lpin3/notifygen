@@ -72,6 +72,7 @@ class AuthService {
         }
         await _storage.writeApiKey(parsed.apiKey!);
         await _storage.writeMatricula(matricula);
+        await _storage.writeAgentName(parsed.agentName);
       } else {
         await logout();
       }
@@ -164,6 +165,8 @@ class AuthService {
   }
 
   Future<String?> readMatricula() => _storage.readMatricula();
+
+  Future<String?> readAgentName() => _storage.readAgentName();
 
   Future<String?> readApiKey() => _storage.readApiKey();
 

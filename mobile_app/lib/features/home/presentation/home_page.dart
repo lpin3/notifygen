@@ -34,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   String _nextNumber = '';
   List<CrrSummary> _crrs = <CrrSummary>[];
   List<CrrDraft> _drafts = <CrrDraft>[];
+  String _agentName = '';
   String _matricula = '';
 
   @override
@@ -47,6 +48,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => _busy = true);
 
     final matricula = await widget.authService.readMatricula();
+    var agentName = await widget.authService.readAgentName();
     final drafts = await _draftService.loadDrafts();
     var deviceName = _deviceName;
     var deviceId = _deviceId;
@@ -59,10 +61,13 @@ class _HomePageState extends State<HomePage> {
       final status = await widget.crrService.statusDispositivo();
       final dispositivo =
           status['dispositivo'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      final agente =
+          status['agente'] as Map<String, dynamic>? ?? <String, dynamic>{};
       deviceName = dispositivo['nome'] as String? ?? 'Dispositivo';
       deviceId =
           dispositivo['device_id'] as String? ?? dispositivo['imei'] as String? ?? '';
       deviceActive = dispositivo['ativo'] as bool? ?? false;
+      agentName = agente['nome'] as String? ?? agentName;
     } catch (error) {
       final message = error.toString().replaceFirst('Exception: ', '').toLowerCase();
       if (message.contains('desativado') ||
@@ -91,6 +96,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {
+      _agentName = agentName ?? '';
       _matricula = matricula ?? '';
       _deviceName = deviceName;
       _deviceId = deviceId;
@@ -226,6 +232,11 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final agentLabel = _agentName.isNotEmpty
+        ? 'Agente $_agentName'
+        : _matricula.isNotEmpty
+        ? 'Agente $_matricula'
+        : 'Sessão ativa';
 
     return Scaffold(
       appBar: AppBar(
@@ -263,7 +274,7 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _matricula.isEmpty ? 'Sessão ativa' : 'Agente $_matricula',
+                      agentLabel,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: colorScheme.onPrimary,
                             fontWeight: FontWeight.w700,

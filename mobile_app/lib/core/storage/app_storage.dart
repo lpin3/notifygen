@@ -8,6 +8,7 @@ class AppStorage {
 
   static const _apiKeyKey = 'api_key';
   static const _matriculaKey = 'matricula';
+  static const _agentNameKey = 'agent_name';
   static const _deviceIdKey = 'device_id';
   static const _draftsKey = 'pending_crr_drafts';
 
@@ -23,6 +24,11 @@ class AppStorage {
 
   Future<void> writeMatricula(String value) =>
       _storage.write(key: _matriculaKey, value: value);
+
+  Future<String?> readAgentName() => _storage.read(key: _agentNameKey);
+
+  Future<void> writeAgentName(String value) =>
+      _storage.write(key: _agentNameKey, value: value);
 
   Future<List<Map<String, dynamic>>> readPendingDrafts() async {
     final raw = await _storage.read(key: _draftsKey);
@@ -59,5 +65,6 @@ class AppStorage {
   Future<void> clearSession() async {
     await _storage.delete(key: _apiKeyKey);
     await _storage.delete(key: _matriculaKey);
+    await _storage.delete(key: _agentNameKey);
   }
 }
