@@ -25,8 +25,13 @@
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <i class="bi bi-list-ul me-2"></i>Dispositivos Cadastrados
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span><i class="bi bi-list-ul me-2"></i>Dispositivos Cadastrados</span>
+        <small class="text-muted fw-normal">
+            <strong>Pendente</strong> — aguarda código no app &nbsp;·&nbsp;
+            <strong>Aprovado</strong> — pareado e liberado &nbsp;·&nbsp;
+            <strong>Bloqueado</strong> — acesso negado
+        </small>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -35,8 +40,7 @@
                     <tr>
                         <th>Nome</th>
                         <th>Código de Ativação</th>
-                        <th>Ativado</th>
-                        <th>Ativo</th>
+                        <th>Status de acesso</th>
                         <th>Último Acesso</th>
                         <th class="text-center">Ações</th>
                     </tr>
@@ -46,27 +50,26 @@
                     <tr>
                         <td><strong>{{ d.nome }}</strong></td>
                         <td>
+                            {% if d.status_acesso == 'pending' %}
                             <code class="fs-6">{{ d.codigo_ativacao }}</code>
-                        </td>
-                        <td>
-                            {% if d.ativado %}
-                            <span class="badge bg-success">Sim</span>
                             {% else %}
-                            <span class="badge bg-secondary">Não</span>
+                            <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
-                            {% if d.ativo %}
-                            <span class="badge bg-success">Ativo</span>
+                            {% if d.status_acesso == 'approved' %}
+                            <span class="badge bg-success">Aprovado</span>
+                            {% elif d.status_acesso == 'blocked' %}
+                            <span class="badge bg-danger"{% if d.motivo_bloqueio %} title="{{ d.motivo_bloqueio }}"{% endif %}>Bloqueado</span>
                             {% else %}
-                            <span class="badge bg-danger">Inativo</span>
+                            <span class="badge bg-warning text-dark">Pendente</span>
                             {% endif %}
                         </td>
                         <td>{{ d.ultimo_acesso|date:"d/m/Y H:i"|default:"-" }}</td>
                         <td class="text-center">
                             <button type="button" class="btn btn-sm btn-outline-warning"
                                     title="Editar"
-                                    onclick="abrirEdicao({{ d.pk }}, '{{ d.nome|escapejs }}', {{ d.ativo|yesno:'true,false' }}, {{ d.ativado|yesno:'true,false' }})">
+                                    onclick="abrirEdicao({{ d.pk }}, '{{ d.nome|escapejs }}', '{{ d.status_acesso }}')">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <form method="post" action="{% url 'crr:dispositivo_delete' d.pk %}" class="d-inline"
@@ -80,7 +83,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
+                        <td colspan="5" class="text-center text-muted py-4">
                             Nenhum dispositivo cadastrado.
                         </td>
                     </tr>
@@ -106,16 +109,16 @@
                         <label class="form-label">Nome</label>
                         <input type="text" name="nome" id="edit-nome" class="form-control" required>
                     </div>
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="ativo" value="1" id="edit-ativo">
-                        <label class="form-check-label" for="edit-ativo">Dispositivo ativo</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="ativado" value="1" id="edit-ativado">
-                        <label class="form-check-label" for="edit-ativado">
-                            Código já ativado
-                            <small class="text-muted d-block">Desmarque para permitir uma nova ativação neste dispositivo</small>
-                        </label>
+                    <div class="mb-0">
+                        <label class="form-label" for="edit-status">Status de acesso</label>
+                        <select name="status_acesso" id="edit-status" class="form-select" required>
+                            <option value="pending">Pendente — aguarda uso do código no app</option>
+                            <option value="approved">Aprovado — pareado e liberado para uso</option>
+                            <option value="blocked">Bloqueado — acesso negado no app</option>
+                        </select>
+                        <small class="text-muted">
+                            Use <em>Pendente</em> para exigir nova ativação com o código exibido na lista.
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -130,12 +133,11 @@
 
 {% block extra_js %}
 <script>
-function abrirEdicao(pk, nome, ativo, ativado) {
+function abrirEdicao(pk, nome, statusAcesso) {
     const baseUrl = "{% url 'crr:dispositivo_edit' 0 %}".replace('/0/', '/' + pk + '/');
     document.getElementById('form-editar').action = baseUrl;
     document.getElementById('edit-nome').value = nome;
-    document.getElementById('edit-ativo').checked = ativo;
-    document.getElementById('edit-ativado').checked = ativado;
+    document.getElementById('edit-status').value = statusAcesso;
     new bootstrap.Modal(document.getElementById('modalEditar')).show();
 }
 </script>

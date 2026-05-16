@@ -340,13 +340,22 @@ def dispositivo_edit(request, pk):
     dispositivo = get_object_or_404(DispositivoMobile, pk=pk)
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
-        ativo = request.POST.get('ativo') == '1'
-        ativado = request.POST.get('ativado') == '1'
+        status_acesso = request.POST.get('status_acesso', '').strip()
+        status_validos = {
+            choice[0] for choice in DispositivoMobile.STATUS_ACESSO_CHOICES
+        }
         if nome:
             dispositivo.nome = nome
-            dispositivo.ativo = ativo
-            dispositivo.ativado = ativado
-            dispositivo.save(update_fields=['nome', 'ativo', 'ativado'])
+            if status_acesso in status_validos:
+                if status_acesso == DispositivoMobile.STATUS_BLOCKED:
+                    dispositivo.bloquear_acesso('Bloqueado no painel web.')
+                elif status_acesso == DispositivoMobile.STATUS_APPROVED:
+                    dispositivo.aprovar_acesso()
+                else:
+                    dispositivo.status_acesso = DispositivoMobile.STATUS_PENDING
+                    dispositivo.motivo_bloqueio = ''
+                    dispositivo.aprovado_em = None
+            dispositivo.save()
             _log(request.user, dispositivo, CHANGE, f'Dispositivo "{nome}" atualizado.')
             messages.success(request, f'Dispositivo "{nome}" atualizado.')
         else:
