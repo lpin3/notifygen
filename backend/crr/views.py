@@ -292,9 +292,7 @@ class TriagemUpdateView(LoginRequiredMixin, UpdateView):
 
         with transaction.atomic():
             self.object = form.save(commit=False)
-            # Ao salvar na triagem, muda status para 'retido' (se não for superuser)
-            if not self.request.user.is_superuser:
-                self.object.status = 'retido'
+            self.object.status = 'retido'
             self.object.save()
 
             for formset in [condutor_formset, veiculo_formset, enquadramento_formset,
@@ -303,8 +301,12 @@ class TriagemUpdateView(LoginRequiredMixin, UpdateView):
                     formset.instance = self.object
                     formset.save()
 
-        _log(self.request.user, self.object, CHANGE, 'CRR triado → status Retido.')
-        messages.success(self.request, f'CRR {self.object.numeroCrr} triado com sucesso! Status: Retido')
+        status_label = self.object.get_status_display()
+        _log(self.request.user, self.object, CHANGE, f'CRR triado → status {status_label}.')
+        messages.success(
+            self.request,
+            f'CRR {self.object.numeroCrr.upper()} triado com sucesso! Status: {status_label}.',
+        )
         return redirect(self.success_url)
 
     def form_invalid(self, form):
