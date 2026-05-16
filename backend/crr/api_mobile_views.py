@@ -94,6 +94,30 @@ def _serializar_agente(agente):
     }
 
 
+def _obter_agente_request(request):
+    matricula = request.headers.get('X-Matricula', '').strip()
+    if matricula:
+        try:
+            return Agente.objects.get(matricula=matricula, ativo=True)
+        except Agente.DoesNotExist:
+            return None
+    dispositivo = getattr(request, 'dispositivo', None)
+    if dispositivo and dispositivo.solicitado_por_id:
+        return dispositivo.solicitado_por
+    return None
+
+
+def _serializar_dispositivo_perfil(dispositivo):
+    return {
+        'nome': dispositivo.nome,
+        'device_id': dispositivo.device_id,
+        'imei': dispositivo.device_id,
+        'ativo': dispositivo.ativo,
+        'ativado': dispositivo.ativado,
+        'status': dispositivo.status_acesso,
+    }
+
+
 def _serializar_dispositivo_acesso(dispositivo):
     return {
         'id': dispositivo.id,
@@ -730,8 +754,9 @@ def status_dispositivo(request):
     Header: X-API-Key: <api_key>
     """
     dispositivo = request.dispositivo
+    agente = _obter_agente_request(request)
 
-    return Response({
+    payload = {
         'sucesso': True,
         'dispositivo': {
             'id': dispositivo.id,
@@ -750,6 +775,91 @@ def status_dispositivo(request):
             'blocked_reason': dispositivo.motivo_bloqueio,
             'ultimo_acesso': dispositivo.ultimo_acesso,
         },
+    }
+    if agente:
+        payload['agente'] = _serializar_agente(agente)
+
+    return Response(payload)
+
+
+@extend_schema(
+    summary='Consulta ou atualiza o perfil do agente autenticado',
+    parameters=[MOBILE_API_KEY_PARAMETER, MOBILE_MATRICULA_PARAMETER],
+    request=inline_serializer(
+        name='AtualizarPerfilRequest',
+        fields={
+            'nome': serializers.CharField(required=False),
+            'device_name': serializers.CharField(required=False),
+        },
+    ),
+    responses=OpenApiTypes.OBJECT,
+)
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsDispositivoMobile])
+def perfil_agente(request):
+    """
+    GET/PATCH /api/v1/mobile/perfil/
+  Header: X-API-Key, X-Matricula
+    """
+    dispositivo = request.dispositivo
+    agente = _obter_agente_request(request)
+
+    if request.method == 'GET':
+        if not agente:
+            return _resposta_erro(
+                'Agente nao identificado para esta sessao',
+                status.HTTP_404_NOT_FOUND,
+            )
+        return Response({
+            'sucesso': True,
+            'agente': _serializar_agente(agente),
+            'dispositivo': _serializar_dispositivo_perfil(dispositivo),
+        })
+
+    nome = (request.data.get('nome') or '').strip()
+    device_name = (
+        request.data.get('device_name')
+        or request.data.get('nome_dispositivo')
+        or ''
+    ).strip()
+
+    if not nome and not device_name:
+        return _resposta_erro(
+            'Informe ao menos um campo para atualizar',
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    if nome:
+        if not agente:
+            return _resposta_erro(
+                'Agente nao identificado para esta sessao',
+                status.HTTP_404_NOT_FOUND,
+            )
+        if len(nome) > 100:
+            return _resposta_erro(
+                'Nome do agente deve ter no maximo 100 caracteres',
+                status.HTTP_400_BAD_REQUEST,
+            )
+        agente.nome = nome
+        agente.save(update_fields=['nome'])
+
+    if device_name:
+        if len(device_name) > 100:
+            return _resposta_erro(
+                'Nome do dispositivo deve ter no maximo 100 caracteres',
+                status.HTTP_400_BAD_REQUEST,
+            )
+        dispositivo.nome = device_name
+        dispositivo.save(update_fields=['nome'])
+
+    if not agente:
+        agente = _obter_agente_request(request)
+
+    return Response({
+        'sucesso': True,
+        'mensagem': 'Perfil atualizado com sucesso',
+        'agente': _serializar_agente(agente) if agente else None,
+        'dispositivo': _serializar_dispositivo_perfil(dispositivo),
     })
 
 
@@ -862,12 +972,19 @@ def alterar_senha(request):
     { "matricula": "12345", "nova_senha": "novasenha" }
     """
     matricula = request.data.get('matricula', '').strip()
+    senha_atual = request.data.get('senha_atual', '').strip()
     nova_senha = request.data.get('nova_senha', '').strip()
 
     if not matricula or not nova_senha:
         return Response({
             'sucesso': False,
             'erro': 'Matricula e nova senha sao obrigatorios'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    if not senha_atual:
+        return Response({
+            'sucesso': False,
+            'erro': 'Senha atual e obrigatoria'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     if len(nova_senha) < 4:
@@ -886,6 +1003,11 @@ def alterar_senha(request):
         agente = Agente.objects.get(
             matricula=matricula, ativo=True
         )
+        if not agente.check_senha(senha_atual):
+            return Response({
+                'sucesso': False,
+                'erro': 'Senha atual incorreta'
+            }, status=status.HTTP_403_FORBIDDEN)
         agente.set_senha(nova_senha)
         agente.senha_alterada = True
         agente.save(update_fields=['senha', 'senha_alterada'])

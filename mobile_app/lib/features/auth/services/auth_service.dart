@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/http/api_client.dart';
 import '../../../core/storage/app_storage.dart';
 import '../models/access_request_result.dart';
+import '../models/agent_profile.dart';
 import '../models/device_activation_response.dart';
 import '../models/device_registration_response.dart';
 
@@ -171,6 +172,81 @@ class AuthService {
   Future<String?> readApiKey() => _storage.readApiKey();
 
   Future<void> logout() => _storage.clearSession();
+
+  Future<AgentProfile> fetchProfile() async {
+    try {
+      final response = await _apiClient.get(
+        'perfil/',
+        authenticated: true,
+        includeMatricula: true,
+      );
+      final data = response.data as Map<String, dynamic>;
+      final profile = AgentProfile.fromJson(data);
+      if (profile.agentName.isNotEmpty) {
+        await _storage.writeAgentName(profile.agentName);
+      }
+      if (profile.matricula.isNotEmpty) {
+        await _storage.writeMatricula(profile.matricula);
+      }
+      return profile;
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
+
+  Future<AgentProfile> updateProfile({
+    String? agentName,
+    String? deviceName,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (agentName != null) {
+      payload['nome'] = agentName.trim();
+    }
+    if (deviceName != null) {
+      payload['device_name'] = deviceName.trim();
+    }
+
+    try {
+      final response = await _apiClient.patch(
+        'perfil/',
+        authenticated: true,
+        includeMatricula: true,
+        data: payload,
+      );
+      final data = response.data as Map<String, dynamic>;
+      final profile = AgentProfile.fromJson(data);
+      if (profile.agentName.isNotEmpty) {
+        await _storage.writeAgentName(profile.agentName);
+      }
+      return profile;
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final matricula = await _storage.readMatricula();
+    if (matricula == null || matricula.isEmpty) {
+      throw Exception('Matricula nao encontrada na sessao.');
+    }
+
+    try {
+      await _apiClient.post(
+        'alterar-senha/',
+        authenticated: true,
+        data: <String, dynamic>{
+          'matricula': matricula,
+          'senha_atual': currentPassword,
+          'nova_senha': newPassword,
+        },
+      );
+    } on DioException catch (error) {
+      throw Exception(_extractMessage(error));
+    }
+  }
 
   String _extractMessage(DioException error) {
     final data = error.response?.data;

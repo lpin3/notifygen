@@ -14,6 +14,7 @@ urlpatterns = [
     path('login/', api_mobile_views.login_dispositivo, name='mobile_login'),
     path('validar-login/', api_mobile_views.validar_login, name='mobile_validar_login'),
     path('alterar-senha/', api_mobile_views.alterar_senha, name='mobile_alterar_senha'),
+    path('perfil/', api_mobile_views.perfil_agente, name='mobile_perfil'),
 
     # Numeracao CRR (requer API Key)
     path('crr/proximo-numero/', api_mobile_views.obter_proximo_numero, name='mobile_proximo'),

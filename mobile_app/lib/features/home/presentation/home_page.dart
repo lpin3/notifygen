@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/app_logo.dart';
+import '../../auth/presentation/agent_profile_page.dart';
 import '../../auth/services/auth_service.dart';
 import '../../crr/models/crr_draft.dart';
 import '../../crr/models/crr_summary.dart';
@@ -32,6 +33,7 @@ class _HomePageState extends State<HomePage> {
   String _deviceName = '';
   String _deviceId = '';
   bool _deviceActive = false;
+  bool _deviceActivated = false;
   String _nextNumber = '';
   List<CrrSummary> _crrs = <CrrSummary>[];
   List<CrrDraft> _drafts = <CrrDraft>[];
@@ -54,6 +56,7 @@ class _HomePageState extends State<HomePage> {
     var deviceName = _deviceName;
     var deviceId = _deviceId;
     var deviceActive = _deviceActive;
+    var deviceActivated = _deviceActivated;
     var nextNumber = _nextNumber;
     var crrs = _crrs;
     var networkWarning = false;
@@ -68,6 +71,7 @@ class _HomePageState extends State<HomePage> {
       deviceId =
           dispositivo['device_id'] as String? ?? dispositivo['imei'] as String? ?? '';
       deviceActive = dispositivo['ativo'] as bool? ?? false;
+      deviceActivated = dispositivo['ativado'] as bool? ?? false;
       agentName = agente['nome'] as String? ?? agentName;
     } catch (error) {
       final message = error.toString().replaceFirst('Exception: ', '').toLowerCase();
@@ -102,6 +106,7 @@ class _HomePageState extends State<HomePage> {
       _deviceName = deviceName;
       _deviceId = deviceId;
       _deviceActive = deviceActive;
+      _deviceActivated = deviceActivated;
       _nextNumber = nextNumber;
       _crrs = crrs;
       _drafts = drafts;
@@ -127,6 +132,20 @@ class _HomePageState extends State<HomePage> {
           crrService: widget.crrService,
           draftService: _draftService,
           existingDraft: draft,
+        ),
+      ),
+    );
+
+    if (changed == true) {
+      await _loadDashboard();
+    }
+  }
+
+  Future<void> _openProfile() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AgentProfilePage(
+          authService: widget.authService,
         ),
       ),
     );
@@ -230,22 +249,146 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String get _displayName {
+    if (_agentName.isNotEmpty) {
+      return _agentName;
+    }
+    if (_matricula.isNotEmpty) {
+      return 'Matricula $_matricula';
+    }
+    return 'Agente';
+  }
+
+  bool get _deviceAuthorized => _deviceActive && _deviceActivated;
+
+  String get _profileInitials {
+    final source = _agentName.isNotEmpty ? _agentName : _matricula;
+    if (source.isEmpty) {
+      return 'AG';
+    }
+    final parts = source.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+    }
+    return source.substring(0, source.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  Future<void> _showOperationalStatus() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Status operacional'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _DialogStatusRow(
+                  icon: Icons.sync_problem_outlined,
+                  label: 'Sincronizacao',
+                  value: _drafts.isEmpty
+                      ? 'Nenhum rascunho pendente'
+                      : '${_drafts.length} rascunho(s) pendente(s)',
+                ),
+                const SizedBox(height: 16),
+                _DialogStatusRow(
+                  icon: Icons.tag_outlined,
+                  label: 'Proximo CRR',
+                  value: _nextNumber.isEmpty
+                      ? 'Numeracao indisponivel no momento'
+                      : _nextNumber,
+                ),
+                const SizedBox(height: 16),
+                _DialogStatusRow(
+                  icon: Icons.smartphone_rounded,
+                  label: 'Dispositivo',
+                  value: _deviceName.isEmpty
+                      ? 'Sem status disponivel'
+                      : _deviceName,
+                ),
+                const SizedBox(height: 16),
+                _DialogStatusRow(
+                  icon: _deviceAuthorized
+                      ? Icons.verified_user_outlined
+                      : Icons.phonelink_lock_outlined,
+                  label: 'Autorizacao',
+                  value: _deviceAuthorized
+                      ? 'Dispositivo autorizado'
+                      : 'Aguardando liberacao',
+                ),
+                if (_deviceId.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _DialogStatusRow(
+                    icon: Icons.fingerprint_rounded,
+                    label: 'Identificador',
+                    value: _deviceId,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fechar'),
+            ),
+            if (_drafts.isNotEmpty && !_syncing)
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _syncDrafts();
+                },
+                child: const Text('Sincronizar'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final agentLabel = _agentName.isNotEmpty
-        ? _agentName
-        : _matricula.isNotEmpty
-            ? _matricula
-            : 'Sessao ativa';
-    final greeting = _agentName.isNotEmpty || _matricula.isNotEmpty
-        ? 'Ola, $agentLabel'
-        : 'Painel operacional';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Operacao em campo'),
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: IconButton(
+            onPressed: _busy ? null : _openProfile,
+            tooltip: 'Meu perfil',
+            icon: _AppBarProfileAvatar(initials: _profileInitials),
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_matricula.isNotEmpty)
+              Text(
+                'Mat. $_matricula',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+          ],
+        ),
         actions: [
+          IconButton(
+            onPressed: _busy ? null : _showOperationalStatus,
+            icon: _OperationalStatusIcon(
+              deviceAuthorized: _deviceAuthorized,
+              pendingDrafts: _drafts.length,
+            ),
+            tooltip: 'Status operacional',
+          ),
           IconButton(
             onPressed: _busy ? null : _loadDashboard,
             icon: const Icon(Icons.refresh_rounded),
@@ -275,7 +418,10 @@ class _HomePageState extends State<HomePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -285,108 +431,47 @@ class _HomePageState extends State<HomePage> {
                             colorScheme.secondary,
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(28),
+                        borderRadius: BorderRadius.circular(24),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      greeting,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                            color: colorScheme.onPrimary,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Gerencie atendimentos, acompanhe rascunhos offline e consulte os CRRs mais recentes em um unico painel.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: colorScheme.onPrimary,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              const AppLogo(size: 64, showWordmark: false),
-                            ],
+                          Expanded(
+                            child: Text(
+                              'Atendimentos, rascunhos offline e consulta de CRRs em um so lugar.',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: colorScheme.onPrimary,
+                                    height: 1.35,
+                                  ),
+                            ),
                           ),
-                          const SizedBox(height: 18),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _InfoPill(
-                                label: _deviceActive
-                                    ? 'Dispositivo ativo'
-                                    : 'Aguardando liberacao',
-                                foregroundColor: colorScheme.onPrimary,
-                                backgroundColor:
-                                    colorScheme.onPrimary.withOpacity(0.14),
-                              ),
-                              _InfoPill(
-                                label: _nextNumber.isEmpty
-                                    ? 'Numeracao indisponivel'
-                                    : 'Proximo CRR: $_nextNumber',
-                                foregroundColor: colorScheme.onPrimary,
-                                backgroundColor:
-                                    colorScheme.onPrimary.withOpacity(0.14),
-                              ),
-                              if (_matricula.isNotEmpty)
-                                _InfoPill(
-                                  label: 'Matricula $_matricula',
-                                  foregroundColor: colorScheme.onPrimary,
-                                  backgroundColor:
-                                      colorScheme.onPrimary.withOpacity(0.14),
-                                ),
-                            ],
-                          ),
+                          const SizedBox(width: 12),
+                          const AppLogo(size: 52, showWordmark: false),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                    Row(
                       children: [
-                        SizedBox(
-                          width: 180,
+                        Expanded(
                           child: _MetricCard(
                             icon: Icons.description_outlined,
                             label: 'Rascunhos',
                             value: '${_drafts.length}',
-                            hint: _drafts.isEmpty ? 'Sem pendencias' : 'Aguardando envio',
+                            hint: _drafts.isEmpty
+                                ? 'Sem pendencias'
+                                : 'Aguardando envio',
                           ),
                         ),
-                        SizedBox(
-                          width: 180,
+                        const SizedBox(width: 12),
+                        Expanded(
                           child: _MetricCard(
                             icon: Icons.pin_outlined,
-                            label: 'Proximo numero',
+                            label: 'Proximo CRR',
                             value: _nextNumber.isEmpty ? '--' : _nextNumber,
-                            hint: 'Disponivel para novo CRR',
-                          ),
-                        ),
-                        SizedBox(
-                          width: 180,
-                          child: _MetricCard(
-                            icon: Icons.phonelink_lock_outlined,
-                            label: 'Dispositivo',
-                            value: _deviceActive ? 'Ativo' : 'Pendente',
-                            hint: _deviceName.isEmpty ? 'Sem nome' : _deviceName,
+                            hint: 'Para novo registro',
                           ),
                         ),
                       ],
@@ -425,45 +510,6 @@ class _HomePageState extends State<HomePage> {
                                   ? null
                                   : _syncDrafts,
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionHeader(
-                              title: 'Status operacional e dispositivo',
-                              subtitle: _drafts.isEmpty
-                                  ? 'Acompanhe aqui o status atual e a identificacao deste dispositivo.'
-                                  : 'Ha rascunhos locais aguardando sincronizacao e a identificacao deste dispositivo.',
-                            ),
-                            const SizedBox(height: 16),
-                            _StatusLine(
-                              icon: Icons.sync_problem_outlined,
-                              label: 'Sincronizacao',
-                              value: _drafts.isEmpty
-                                  ? 'Nenhum rascunho pendente'
-                                  : '${_drafts.length} rascunho(s) pendente(s)',
-                            ),
-                            const SizedBox(height: 12),
-                            _StatusLine(
-                              icon: Icons.smartphone_rounded,
-                              label: 'Dispositivo',
-                              value: _deviceName.isEmpty ? 'Sem status disponivel' : _deviceName,
-                            ),
-                            if (_deviceId.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _StatusLine(
-                                icon: Icons.fingerprint_rounded,
-                                label: 'Identificador do dispositivo',
-                                value: _deviceId,
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -563,6 +609,126 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppBarProfileAvatar extends StatelessWidget {
+  const _AppBarProfileAvatar({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return CircleAvatar(
+      backgroundColor: colorScheme.primaryContainer,
+      foregroundColor: colorScheme.onPrimaryContainer,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+}
+
+class _OperationalStatusIcon extends StatelessWidget {
+  const _OperationalStatusIcon({
+    required this.deviceAuthorized,
+    required this.pendingDrafts,
+  });
+
+  final bool deviceAuthorized;
+  final int pendingDrafts;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final statusColor =
+        deviceAuthorized ? const Color(0xFF2E7D32) : colorScheme.tertiary;
+
+    final icon = pendingDrafts > 0
+        ? Badge(
+            label: Text('$pendingDrafts'),
+            child: const Icon(Icons.insights_outlined),
+          )
+        : const Icon(Icons.insights_outlined);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        icon,
+        Positioned(
+          left: 0,
+          bottom: 0,
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: colorScheme.surface, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogStatusRow extends StatelessWidget {
+  const _DialogStatusRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: colorScheme.primary, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -725,59 +891,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: colorScheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _EmptyStateCard extends StatelessWidget {
   const _EmptyStateCard({
     required this.icon,
@@ -836,32 +949,3 @@ class _EmptyStateCard extends StatelessWidget {
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({
-    required this.label,
-    required this.foregroundColor,
-    required this.backgroundColor,
-  });
-
-  final String label;
-  final Color foregroundColor;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: foregroundColor,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
