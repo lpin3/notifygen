@@ -43,10 +43,6 @@ class CrrListView(LoginRequiredMixin, ListView):
     ordering = ['-criado_em']
 
     def get_queryset(self):
-        # Só exibe resultados após o usuário usar o filtro
-        if 'search' not in self.request.GET and 'status' not in self.request.GET:
-            return Crr.objects.none()
-
         queryset = super().get_queryset()
         status = self.request.GET.get('status')
         search = self.request.GET.get('search')
@@ -63,7 +59,7 @@ class CrrListView(LoginRequiredMixin, ListView):
                 veiculo__chassi__icontains=search
             )
 
-        return queryset.distinct().prefetch_related('condutores')
+        return queryset.distinct().prefetch_related('condutores', 'veiculo', 'notificacao')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
