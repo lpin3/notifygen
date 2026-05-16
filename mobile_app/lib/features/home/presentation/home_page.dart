@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../auth/presentation/login_page.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../../auth/services/auth_service.dart';
-import '../../crr/models/crr_summary.dart';
 import '../../crr/models/crr_draft.dart';
+import '../../crr/models/crr_summary.dart';
 import '../../crr/presentation/crr_form_page.dart';
 import '../../crr/presentation/crr_search_page.dart';
 import '../../crr/services/crr_draft_service.dart';
 import '../../crr/services/crr_service.dart';
+import '../../splash/presentation/splash_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -111,7 +112,7 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Alguns dados online não puderam ser atualizados. Os rascunhos locais continuam disponíveis.',
+            'Alguns dados online nao puderam ser atualizados. Os rascunhos locais continuam disponiveis.',
           ),
         ),
       );
@@ -149,7 +150,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _syncDrafts() async {
     if (_drafts.isEmpty) {
-      _showError('Não há rascunhos pendentes.');
+      _showError('Nao ha rascunhos pendentes.');
       return;
     }
 
@@ -186,7 +187,7 @@ class _HomePageState extends State<HomePage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => LoginPage(
+        builder: (_) => SplashPage(
           storage: widget.authService.storage,
           apiClient: widget.authService.apiClient,
         ),
@@ -204,14 +205,14 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Este dispositivo não está mais autorizado. Faça login novamente ou solicite nova liberação.',
+          'Este dispositivo nao esta mais autorizado. Faca login novamente ou solicite nova liberacao.',
         ),
       ),
     );
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => LoginPage(
+        builder: (_) => SplashPage(
           storage: widget.authService.storage,
           apiClient: widget.authService.apiClient,
         ),
@@ -233,257 +234,346 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final agentLabel = _agentName.isNotEmpty
-        ? 'Agente $_agentName'
+        ? _agentName
         : _matricula.isNotEmpty
-        ? 'Agente $_matricula'
-        : 'Sessão ativa';
+            ? _matricula
+            : 'Sessao ativa';
+    final greeting = _agentName.isNotEmpty || _matricula.isNotEmpty
+        ? 'Ola, $agentLabel'
+        : 'Painel operacional';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Operação em campo'),
+        title: const Text('Operacao em campo'),
         actions: [
           IconButton(
             onPressed: _busy ? null : _loadDashboard,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Atualizar painel',
           ),
           IconButton(
             onPressed: _busy ? null : _logout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'Encerrar sessão',
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Encerrar sessao',
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _busy ? null : () => _openNewCrr(),
+        icon: const Icon(Icons.add_task_rounded),
+        label: const Text('Novo CRR'),
+      ),
       body: RefreshIndicator(
         onRefresh: _loadDashboard,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.secondary,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                ),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      agentLabel,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onPrimary,
-                            fontWeight: FontWeight.w700,
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      greeting,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: colorScheme.onPrimary,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Gerencie atendimentos, acompanhe rascunhos offline e consulte os CRRs mais recentes em um unico painel.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.onPrimary,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const AppLogo(size: 64, showWordmark: false),
+                            ],
                           ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Acesso rápido para registrar atendimento, consultar CRRs e retomar rascunhos locais.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onPrimary,
+                          const SizedBox(height: 18),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _InfoPill(
+                                label: _deviceActive
+                                    ? 'Dispositivo ativo'
+                                    : 'Aguardando liberacao',
+                                foregroundColor: colorScheme.onPrimary,
+                                backgroundColor:
+                                    colorScheme.onPrimary.withOpacity(0.14),
+                              ),
+                              _InfoPill(
+                                label: _nextNumber.isEmpty
+                                    ? 'Numeracao indisponivel'
+                                    : 'Proximo CRR: $_nextNumber',
+                                foregroundColor: colorScheme.onPrimary,
+                                backgroundColor:
+                                    colorScheme.onPrimary.withOpacity(0.14),
+                              ),
+                              if (_matricula.isNotEmpty)
+                                _InfoPill(
+                                  label: 'Matricula $_matricula',
+                                  foregroundColor: colorScheme.onPrimary,
+                                  backgroundColor:
+                                      colorScheme.onPrimary.withOpacity(0.14),
+                                ),
+                            ],
                           ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
-                        _InfoPill(
-                          label: _deviceActive ? 'Dispositivo ativo' : 'Aguardando liberação',
-                          foregroundColor: colorScheme.onPrimary,
-                          backgroundColor: colorScheme.onPrimary.withOpacity(0.14),
+                        SizedBox(
+                          width: 180,
+                          child: _MetricCard(
+                            icon: Icons.description_outlined,
+                            label: 'Rascunhos',
+                            value: '${_drafts.length}',
+                            hint: _drafts.isEmpty ? 'Sem pendencias' : 'Aguardando envio',
+                          ),
                         ),
-                        _InfoPill(
-                          label: _nextNumber.isEmpty
-                              ? 'Numeração indisponível'
-                              : 'Próximo CRR: $_nextNumber',
-                          foregroundColor: colorScheme.onPrimary,
-                          backgroundColor: colorScheme.onPrimary.withOpacity(0.14),
+                        SizedBox(
+                          width: 180,
+                          child: _MetricCard(
+                            icon: Icons.pin_outlined,
+                            label: 'Proximo numero',
+                            value: _nextNumber.isEmpty ? '--' : _nextNumber,
+                            hint: 'Disponivel para novo CRR',
+                          ),
+                        ),
+                        SizedBox(
+                          width: 180,
+                          child: _MetricCard(
+                            icon: Icons.phonelink_lock_outlined,
+                            label: 'Dispositivo',
+                            value: _deviceActive ? 'Ativo' : 'Pendente',
+                            hint: _deviceName.isEmpty ? 'Sem nome' : _deviceName,
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _SectionHeader(
+                              title: 'Atalhos rapidos',
+                              subtitle:
+                                  'As tarefas mais frequentes ficam acessiveis sem poluir o topo da tela.',
+                            ),
+                            const SizedBox(height: 16),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                SizedBox(
+                                  width: 180,
+                                  child: _ActionCard(
+                                    icon: Icons.search_rounded,
+                                    title: 'Consultar CRRs',
+                                    subtitle: 'Busque, revise e acompanhe registros.',
+                                    onTap: _busy ? null : _openSearch,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 180,
+                                  child: _ActionCard(
+                                    icon: Icons.sync_rounded,
+                                    title: 'Sincronizar',
+                                    subtitle: _syncing
+                                        ? 'Enviando rascunhos pendentes...'
+                                        : 'Enviar ${_drafts.length} item(ns) quando houver rede.',
+                                    onTap: _busy || _syncing ? null : _syncDrafts,
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 180,
+                                  child: _ActionCard(
+                                    icon: Icons.refresh_rounded,
+                                    title: 'Atualizar painel',
+                                    subtitle: 'Recarregue status do dispositivo e historico.',
+                                    onTap: _busy ? null : _loadDashboard,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _SectionHeader(
+                              title: 'Status operacional e dispositivo',
+                              subtitle: _drafts.isEmpty
+                                  ? 'Acompanhe aqui o status atual e a identificacao deste dispositivo.'
+                                  : 'Ha rascunhos locais aguardando sincronizacao e a identificacao deste dispositivo.',
+                            ),
+                            const SizedBox(height: 16),
+                            _StatusLine(
+                              icon: Icons.sync_problem_outlined,
+                              label: 'Sincronizacao',
+                              value: _drafts.isEmpty
+                                  ? 'Nenhum rascunho pendente'
+                                  : '${_drafts.length} rascunho(s) pendente(s)',
+                            ),
+                            const SizedBox(height: 12),
+                            _StatusLine(
+                              icon: Icons.smartphone_rounded,
+                              label: 'Dispositivo',
+                              value: _deviceName.isEmpty ? 'Sem status disponivel' : _deviceName,
+                            ),
+                            if (_deviceId.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _StatusLine(
+                                icon: Icons.fingerprint_rounded,
+                                label: 'Identificador do dispositivo',
+                                value: _deviceId,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    if (_busy)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else ...[
+                      const _SectionHeader(
+                        title: 'Rascunhos locais',
+                        subtitle: 'Continue exatamente de onde parou, mesmo sem rede.',
+                      ),
+                      const SizedBox(height: 12),
+                      if (_drafts.isEmpty)
+                        const _EmptyStateCard(
+                          icon: Icons.drafts_outlined,
+                          title: 'Nenhum rascunho salvo',
+                          description:
+                              'Use o botao "Novo CRR" para iniciar um atendimento e continuar depois se necessario.',
+                        ),
+                      ..._drafts.map(
+                        (draft) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                backgroundColor: colorScheme.primaryContainer,
+                                foregroundColor: colorScheme.onPrimaryContainer,
+                                child: const Icon(Icons.description_outlined),
+                              ),
+                              title: Text(
+                                draft.payload.localFiscalizacao.isEmpty
+                                    ? 'Rascunho sem local definido'
+                                    : draft.payload.localFiscalizacao,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  '${draft.payload.placa.isEmpty ? 'Sem placa' : draft.payload.placa} • ${draft.payload.dataFiscalizacao}\n${draft.lastError.isEmpty ? 'Aguardando sincronizacao' : draft.lastError}',
+                                ),
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () => _openNewCrr(draft: draft),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const _SectionHeader(
+                        title: 'Ultimos CRRs',
+                        subtitle: 'Acompanhe rapidamente os registros mais recentes da sua matricula.',
+                      ),
+                      const SizedBox(height: 12),
+                      if (_crrs.isEmpty)
+                        const _EmptyStateCard(
+                          icon: Icons.inbox_outlined,
+                          title: 'Nenhum CRR recente disponivel',
+                          description:
+                              'Assim que houver registros vinculados a esta matricula, eles aparecerao aqui.',
+                        ),
+                      ..._crrs.map(
+                        (crr) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                backgroundColor: colorScheme.secondaryContainer,
+                                foregroundColor: colorScheme.onSecondaryContainer,
+                                child: const Icon(Icons.assignment_outlined),
+                              ),
+                              title: Text(
+                                crr.numeroCrr,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  '${crr.placa} • ${crr.marca} ${crr.modelo}\n${crr.dataFiscalizacao}',
+                                ),
+                              ),
+                              trailing: Chip(label: Text(crr.status)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Ações principais',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ActionCard(
-                              icon: Icons.note_add_outlined,
-                              title: 'Novo CRR',
-                              subtitle: 'Abrir fluxo guiado',
-                              onTap: _busy ? null : () => _openNewCrr(),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _ActionCard(
-                              icon: Icons.search_outlined,
-                              title: 'Consultar',
-                              subtitle: 'Buscar ou revisar CRRs',
-                              onTap: _busy ? null : _openSearch,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ActionCard(
-                              icon: Icons.sync_outlined,
-                              title: 'Sincronizar',
-                              subtitle: _syncing
-                                  ? 'Enviando rascunhos...'
-                                  : '${_drafts.length} pendente(s)',
-                              onTap: _busy || _syncing ? null : _syncDrafts,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _ActionCard(
-                              icon: Icons.badge_outlined,
-                              title: 'Dispositivo',
-                              subtitle: _deviceName.isEmpty
-                                  ? 'Sem status'
-                                  : _deviceName,
-                              onTap: null,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Status de sincronização',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _drafts.isEmpty
-                            ? 'Sem rascunhos pendentes neste dispositivo.'
-                            : 'Há ${_drafts.length} rascunho(s) aguardando envio. Você pode continuar preenchendo ou sincronizar quando a rede estabilizar.',
-                      ),
-                      if (_deviceId.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'ID do dispositivo: $_deviceId',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_busy)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else ...[
-                Text(
-                  'Rascunhos locais',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                if (_drafts.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Text(
-                        'Nenhum rascunho salvo. Use "Novo CRR" para iniciar um atendimento.',
-                      ),
-                    ),
-                  ),
-                ..._drafts.map(
-                  (draft) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        title: Text(
-                          draft.payload.localFiscalizacao.isEmpty
-                              ? 'Rascunho sem local definido'
-                              : draft.payload.localFiscalizacao,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          '${draft.payload.placa.isEmpty ? 'Sem placa' : draft.payload.placa} • ${draft.payload.dataFiscalizacao}\n${draft.lastError.isEmpty ? 'Aguardando sincronização' : draft.lastError}',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _openNewCrr(draft: draft),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Últimos CRRs',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                if (_crrs.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Text(
-                        'Nenhum CRR recente disponível para esta matrícula.',
-                      ),
-                    ),
-                  ),
-                ..._crrs.map(
-                  (crr) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        title: Text(
-                          crr.numeroCrr,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        subtitle: Text(
-                          '${crr.placa} • ${crr.marca} ${crr.modelo}\n${crr.dataFiscalizacao}',
-                        ),
-                        trailing: Chip(label: Text(crr.status)),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            ),
           ],
         ),
       ),
@@ -507,31 +597,251 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
+          color: enabled
+              ? colorScheme.surfaceContainerHighest
+              : colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: colorScheme.primary),
-            const SizedBox(height: 16),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: enabled
+                    ? colorScheme.primaryContainer
+                    : colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: enabled
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
             Text(
               title,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: enabled
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.hint,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 4),
             Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall,
+              hint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(icon, color: colorScheme.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyStateCard extends StatelessWidget {
+  const _EmptyStateCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: colorScheme.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

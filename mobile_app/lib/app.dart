@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'core/http/api_client.dart';
 import 'core/storage/app_storage.dart';
 import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/login_page.dart';
+import 'features/splash/presentation/splash_page.dart';
 
 class NotifygenMobileApp extends StatefulWidget {
   const NotifygenMobileApp({super.key});
@@ -32,7 +32,7 @@ class _NotifygenMobileAppState extends State<NotifygenMobileApp> {
       title: 'Notifygen Mobile',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.build(),
-      home: LoginPage(
+      home: SplashPage(
         storage: _storage,
         apiClient: _apiClient,
       ),

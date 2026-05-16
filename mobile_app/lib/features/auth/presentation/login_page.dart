@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/http/api_client.dart';
 import '../../../core/storage/app_storage.dart';
+import '../../../core/widgets/app_logo.dart';
 import '../models/access_request_result.dart';
 import 'access_status_page.dart';
 import '../../crr/services/crr_service.dart';
@@ -12,11 +13,15 @@ class LoginPage extends StatefulWidget {
   const LoginPage({
     required this.storage,
     required this.apiClient,
+    this.initialDeviceId,
+    this.initialMatricula,
     super.key,
   });
 
   final AppStorage storage;
   final ApiClient apiClient;
+  final String? initialDeviceId;
+  final String? initialMatricula;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -27,18 +32,32 @@ class _LoginPageState extends State<LoginPage> {
 
   late final AuthService _authService;
   late final CrrService _crrService;
+  final _formKey = GlobalKey<FormState>();
   final _matriculaController = TextEditingController();
   final _senhaController = TextEditingController();
 
   String _deviceId = '';
   bool _busy = true;
+  bool _submitting = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
     _authService = AuthService(apiClient: widget.apiClient, storage: widget.storage);
     _crrService = CrrService(apiClient: widget.apiClient);
-    _bootstrap();
+
+    final initialMatricula = widget.initialMatricula?.trim() ?? '';
+    if (initialMatricula.isNotEmpty) {
+      _matriculaController.text = initialMatricula;
+    }
+
+    if ((widget.initialDeviceId ?? '').isNotEmpty) {
+      _deviceId = widget.initialDeviceId!;
+      _busy = false;
+    } else {
+      _bootstrap();
+    }
   }
 
   @override
@@ -87,7 +106,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _submitAccess() async {
-    setState(() => _busy = true);
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _submitting = true);
     try {
       final result = await _requestAccess();
 
@@ -126,7 +150,7 @@ class _LoginPageState extends State<LoginPage> {
       _showError(error.toString());
     } finally {
       if (mounted) {
-        setState(() => _busy = false);
+        setState(() => _submitting = false);
       }
     }
   }
@@ -156,164 +180,205 @@ class _LoginPageState extends State<LoginPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifygen Operacional')),
       body: _busy
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primary,
-                            colorScheme.secondary,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+          : GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: SafeArea(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'Acesso operacional',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: colorScheme.onPrimary,
-                                  fontWeight: FontWeight.w700,
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer.withOpacity(0.52),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(color: colorScheme.outlineVariant),
+                            ),
+                            child: Column(
+                              children: [
+                                const AppLogo(size: 72),
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Acesso operacional',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                 ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Entre com sua matrícula e senha para acessar o painel. A identificação do dispositivo fica disponível após o login.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _HeaderPill(
+                                      icon: Icons.verified_user_outlined,
+                                      label: 'Acesso seguro',
+                                      foregroundColor: colorScheme.primary,
+                                      backgroundColor: colorScheme.surface.withOpacity(0.88),
+                                    ),
+                                    _HeaderPill(
+                                      icon: Icons.bolt_rounded,
+                                      label: 'Entrada rapida',
+                                      foregroundColor: colorScheme.primary,
+                                      backgroundColor: colorScheme.surface.withOpacity(0.88),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Digite sua matrícula e senha. O app identifica o dispositivo automaticamente e informa se ele já está liberado, pendente ou bloqueado.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onPrimary,
+                          const SizedBox(height: 20),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Form(
+                                key: _formKey,
+                                child: AutofillGroup(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Entrar no aplicativo',
+                                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Use as credenciais do ambiente operacional para continuar.',
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              color: colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      TextFormField(
+                                        controller: _matriculaController,
+                                        keyboardType: TextInputType.number,
+                                        textInputAction: TextInputAction.next,
+                                        autofillHints: const [AutofillHints.username],
+                                        enabled: !_submitting,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Matrícula',
+                                          hintText: 'Digite sua matrícula',
+                                          prefixIcon: Icon(Icons.badge_outlined),
+                                        ),
+                                        validator: (value) {
+                                          if ((value ?? '').trim().isEmpty) {
+                                            return 'Informe sua matrícula.';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _senhaController,
+                                        obscureText: _obscurePassword,
+                                        textInputAction: TextInputAction.done,
+                                        autofillHints: const [AutofillHints.password],
+                                        enabled: !_submitting,
+                                        onFieldSubmitted: (_) {
+                                          if (!_submitting) {
+                                            _submitAccess();
+                                          }
+                                        },
+                                        decoration: InputDecoration(
+                                          labelText: 'Senha',
+                                          hintText: 'Digite sua senha',
+                                          prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                          suffixIcon: IconButton(
+                                            onPressed: () {
+                                              setState(
+                                                () => _obscurePassword = !_obscurePassword,
+                                              );
+                                            },
+                                            icon: Icon(
+                                              _obscurePassword
+                                                  ? Icons.visibility_outlined
+                                                  : Icons.visibility_off_outlined,
+                                            ),
+                                            tooltip: _obscurePassword
+                                                ? 'Mostrar senha'
+                                                : 'Ocultar senha',
+                                          ),
+                                        ),
+                                        validator: (value) {
+                                          if ((value ?? '').trim().isEmpty) {
+                                            return 'Informe sua senha.';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 20),
+                                      FilledButton(
+                                        onPressed: _submitting ? null : _submitAccess,
+                                        child: _submitting
+                                            ? SizedBox(
+                                                height: 22,
+                                                width: 22,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.4,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                                    colorScheme.onPrimary,
+                                                  ),
+                                                ),
+                                              )
+                                            : const Text('Entrar no aplicativo'),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline_rounded,
+                                              size: 20,
+                                              color: colorScheme.primary,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                'O app reconhece o dispositivo automaticamente. O identificador e o status de liberação ficam disponíveis no painel após o acesso.',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: colorScheme.onSurfaceVariant,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Identificação do dispositivo',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Identificador do dispositivo',
-                                    style: TextStyle(fontWeight: FontWeight.w700),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SelectableText(_deviceId),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Este identificador é enviado junto com a autenticação do agente para registrar ou localizar o aparelho no backend.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Entrar no aplicativo',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _matriculaController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Matrícula do agente',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _senhaController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Senha',
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              onPressed: _busy ? null : _submitAccess,
-                              child: const Text('Entrar no aplicativo'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Fluxo recomendado',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            const _FlowItem(
-                              index: '1',
-                              title: 'Autenticação do agente',
-                              description:
-                                  'O app valida matrícula e senha antes de qualquer tentativa de operação.',
-                            ),
-                            const SizedBox(height: 12),
-                            const _FlowItem(
-                              index: '2',
-                              title: 'Identificação automática do aparelho',
-                              description:
-                                  'O backend localiza ou registra o dispositivo pelo identificador interno, sem o usuário decidir se é primeiro acesso.',
-                            ),
-                            const SizedBox(height: 12),
-                            const _FlowItem(
-                              index: '3',
-                              title: 'Liberação administrativa segura',
-                              description:
-                                  'Se o aparelho ainda não estiver aprovado, o agente vê o status da solicitação e pode acompanhar a liberação sem códigos manuais.',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -321,52 +386,42 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class _FlowItem extends StatelessWidget {
-  const _FlowItem({
-    required this.index,
-    required this.title,
-    required this.description,
+class _HeaderPill extends StatelessWidget {
+  const _HeaderPill({
+    required this.icon,
+    required this.label,
+    required this.foregroundColor,
+    required this.backgroundColor,
   });
 
-  final String index;
-  final String title;
-  final String description;
+  final IconData icon;
+  final String label;
+  final Color foregroundColor;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: colorScheme.primaryContainer,
-          child: Text(
-            index,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: foregroundColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
             style: TextStyle(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w700,
+              color: foregroundColor,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(description),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
+
