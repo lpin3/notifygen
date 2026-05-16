@@ -401,43 +401,29 @@ class _HomePageState extends State<HomePage> {
                             const _SectionHeader(
                               title: 'Atalhos rapidos',
                               subtitle:
-                                  'As tarefas mais frequentes ficam acessiveis sem poluir o topo da tela.',
+                                  'Toque para consultar ou enviar rascunhos pendentes.',
                             ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [
-                                SizedBox(
-                                  width: 180,
-                                  child: _ActionCard(
-                                    icon: Icons.search_rounded,
-                                    title: 'Consultar CRRs',
-                                    subtitle: 'Busque, revise e acompanhe registros.',
-                                    onTap: _busy ? null : _openSearch,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 180,
-                                  child: _ActionCard(
-                                    icon: Icons.sync_rounded,
-                                    title: 'Sincronizar',
-                                    subtitle: _syncing
-                                        ? 'Enviando rascunhos pendentes...'
-                                        : 'Enviar ${_drafts.length} item(ns) quando houver rede.',
-                                    onTap: _busy || _syncing ? null : _syncDrafts,
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 180,
-                                  child: _ActionCard(
-                                    icon: Icons.refresh_rounded,
-                                    title: 'Atualizar painel',
-                                    subtitle: 'Recarregue status do dispositivo e historico.',
-                                    onTap: _busy ? null : _loadDashboard,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(height: 8),
+                            _ShortcutListTile(
+                              icon: Icons.search_rounded,
+                              title: 'Consultar CRRs',
+                              onTap: _busy ? null : _openSearch,
+                            ),
+                            const Divider(height: 1),
+                            _ShortcutListTile(
+                              icon: Icons.sync_rounded,
+                              title: 'Sincronizar rascunhos',
+                              subtitle: _syncing
+                                  ? 'Enviando rascunhos...'
+                                  : _drafts.isEmpty
+                                      ? 'Nenhum pendente'
+                                      : null,
+                              badgeCount:
+                                  _drafts.isEmpty ? null : _drafts.length,
+                              showProgress: _syncing,
+                              onTap: _busy || _syncing || _drafts.isEmpty
+                                  ? null
+                                  : _syncDrafts,
                             ),
                           ],
                         ),
@@ -581,17 +567,21 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
+class _ShortcutListTile extends StatelessWidget {
+  const _ShortcutListTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
+    this.badgeCount,
+    this.showProgress = false,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
+  final int? badgeCount;
+  final bool showProgress;
   final VoidCallback? onTap;
 
   @override
@@ -599,56 +589,52 @@ class _ActionCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = onTap != null;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: enabled
-              ? colorScheme.surfaceContainerHighest
-              : colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(22),
+    Widget? trailing;
+    if (showProgress) {
+      trailing = SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: colorScheme.primary,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: enabled
-                    ? colorScheme.primaryContainer
-                    : colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                icon,
-                color: enabled
-                    ? colorScheme.onPrimaryContainer
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: enabled
-                        ? colorScheme.onSurface
-                        : colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
+      );
+    } else if (badgeCount != null && badgeCount! > 0) {
+      trailing = Badge(
+        label: Text('$badgeCount'),
+        child: const Icon(Icons.chevron_right_rounded),
+      );
+    } else if (enabled) {
+      trailing = const Icon(Icons.chevron_right_rounded);
+    }
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      enabled: enabled,
+      leading: CircleAvatar(
+        backgroundColor: enabled
+            ? colorScheme.primaryContainer
+            : colorScheme.surfaceContainerHighest,
+        foregroundColor: enabled
+            ? colorScheme.onPrimaryContainer
+            : colorScheme.onSurfaceVariant,
+        child: Icon(icon),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: enabled ? null : colorScheme.onSurfaceVariant,
         ),
       ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+      trailing: trailing,
+      onTap: onTap,
     );
   }
 }
