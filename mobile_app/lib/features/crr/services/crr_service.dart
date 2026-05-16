@@ -121,6 +121,7 @@ class CrrService {
       final response = await _apiClient.get(
         'status/',
         authenticated: true,
+        includeMatricula: true,
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (error) {

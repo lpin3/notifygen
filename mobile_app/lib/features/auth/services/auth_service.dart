@@ -171,6 +171,18 @@ class AuthService {
 
   Future<String?> readApiKey() => _storage.readApiKey();
 
+  Future<void> persistSessionAgent({
+    String? agentName,
+    String? matricula,
+  }) async {
+    if (agentName != null && agentName.trim().isNotEmpty) {
+      await _storage.writeAgentName(agentName.trim());
+    }
+    if (matricula != null && matricula.trim().isNotEmpty) {
+      await _storage.writeMatricula(matricula.trim());
+    }
+  }
+
   Future<void> logout() => _storage.clearSession();
 
   Future<AgentProfile> fetchProfile() async {

@@ -50,7 +50,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadDashboard() async {
     setState(() => _busy = true);
 
-    final matricula = await widget.authService.readMatricula();
+    var matricula = await widget.authService.readMatricula();
     var agentName = await widget.authService.readAgentName();
     final drafts = await _draftService.loadDrafts();
     var deviceName = _deviceName;
@@ -72,7 +72,22 @@ class _HomePageState extends State<HomePage> {
           dispositivo['device_id'] as String? ?? dispositivo['imei'] as String? ?? '';
       deviceActive = dispositivo['ativo'] as bool? ?? false;
       deviceActivated = dispositivo['ativado'] as bool? ?? false;
-      agentName = agente['nome'] as String? ?? agentName;
+
+      final agenteMatricula = (agente['matricula'] as String? ?? '').trim();
+      final agenteNome = (agente['nome'] as String? ?? '').trim();
+      final sessionMatricula = (matricula ?? '').trim();
+
+      if (agenteMatricula.isNotEmpty &&
+          (sessionMatricula.isEmpty || agenteMatricula == sessionMatricula)) {
+        matricula = agenteMatricula;
+        if (agenteNome.isNotEmpty) {
+          agentName = agenteNome;
+        }
+        await widget.authService.persistSessionAgent(
+          agentName: agenteNome.isNotEmpty ? agenteNome : null,
+          matricula: agenteMatricula,
+        );
+      }
     } catch (error) {
       final message = error.toString().replaceFirst('Exception: ', '').toLowerCase();
       if (message.contains('desativado') ||
