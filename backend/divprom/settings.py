@@ -132,14 +132,15 @@ INSTALLED_APPS = [
 
 # Configuração do Jazzmin
 JAZZMIN_SETTINGS = {
-    "site_title": "SYSTRAF",
-    "site_header": "SYSTRAF",
-    "site_brand": "SYSTRAF",
-    "welcome_sign": "Bem-vindo ao Sistema SYSTRAF",
+    "site_title": "Notifygen",
+    "site_header": "Notifygen",
+    "site_brand": "Notifygen",
+    "welcome_sign": "Bem-vindo ao Sistema Notifygen",
     "copyright": "Prefeitura Municipal de São Sebastião",
     "search_model": ["crr.Crr"],
     "topmenu_links": [
         {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "CRR", "url": "crr:crr_list", "permissions": ["auth.view_user"]},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,
