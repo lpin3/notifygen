@@ -139,7 +139,7 @@ JAZZMIN_SETTINGS = {
     "copyright": "Prefeitura Municipal de São Sebastião",
     "search_model": ["crr.Crr"],
     "topmenu_links": [
-        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Admin", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"name": "CRR", "url": "crr:crr_list", "permissions": ["auth.view_user"]},
     ],
     "show_sidebar": True,
