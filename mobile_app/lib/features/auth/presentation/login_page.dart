@@ -219,26 +219,6 @@ class _LoginPageState extends State<LoginPage> {
                                         color: colorScheme.onSurfaceVariant,
                                       ),
                                 ),
-                                const SizedBox(height: 16),
-                                Wrap(
-                                  alignment: WrapAlignment.center,
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    _HeaderPill(
-                                      icon: Icons.verified_user_outlined,
-                                      label: 'Acesso seguro',
-                                      foregroundColor: colorScheme.primary,
-                                      backgroundColor: colorScheme.surface.withOpacity(0.88),
-                                    ),
-                                    _HeaderPill(
-                                      icon: Icons.bolt_rounded,
-                                      label: 'Entrada rapida',
-                                      foregroundColor: colorScheme.primary,
-                                      backgroundColor: colorScheme.surface.withOpacity(0.88),
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),
@@ -339,36 +319,6 @@ class _LoginPageState extends State<LoginPage> {
                                               )
                                             : const Text('Entrar no aplicativo'),
                                       ),
-                                      const SizedBox(height: 14),
-                                      Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.surfaceContainerHighest,
-                                          borderRadius: BorderRadius.circular(16),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              Icons.info_outline_rounded,
-                                              size: 20,
-                                              color: colorScheme.primary,
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                'O app reconhece o dispositivo automaticamente. O identificador e o status de liberação ficam disponíveis no painel após o acesso.',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      color: colorScheme.onSurfaceVariant,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -382,45 +332,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-    );
-  }
-}
-
-class _HeaderPill extends StatelessWidget {
-  const _HeaderPill({
-    required this.icon,
-    required this.label,
-    required this.foregroundColor,
-    required this.backgroundColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color foregroundColor;
-  final Color backgroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: foregroundColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: foregroundColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
